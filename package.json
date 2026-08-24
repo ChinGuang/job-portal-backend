@@ -17,7 +17,12 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "bash scripts/run-e2e.sh"
+    "test:e2e": "bash scripts/run-e2e.sh",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "typeorm:env": "dotenv -e .env.local -- pnpm typeorm",
+    "migration:generate": "pnpm typeorm:env migration:generate src/database/migrations/CreateUsersTable -d src/data-source.ts",
+    "migration:run": "pnpm typeorm:env migration:run -d src/data-source.ts",
+    "migration:revert": "pnpm typeorm:env migration:revert -d src/data-source.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -29,6 +34,7 @@
     "@nestjs/typeorm": "^11.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "dotenv": "^17.4.2",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
