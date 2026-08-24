@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AllExceptionsFilter } from './common/exception-filters/http-exception.filter';
 import { dataSourceOptions } from './data-source';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { dataSourceOptions } from './data-source';
         limit: 10,
       },
     ]),
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
