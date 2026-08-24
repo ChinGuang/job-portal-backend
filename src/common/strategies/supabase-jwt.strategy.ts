@@ -4,6 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { passportJwtSecret } from 'jwks-rsa';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UserRepoService } from '../../modules/users/services/user-repo.service';
+import { EnvKey } from '../constants/config';
 import { StrategyName } from '../constants/strategy';
 
 @Injectable()
@@ -15,7 +16,7 @@ export class SupabaseJwtStrategy extends PassportStrategy(
     configService: ConfigService,
     private readonly userRepoService: UserRepoService,
   ) {
-    const supabaseUrl = configService.get<string>('SUPABASE_URL');
+    const supabaseUrl = configService.get<string>(EnvKey.SUPABASE_URL);
 
     super({
       // 1. Retrieve key dynamically using JWKS with internal caching

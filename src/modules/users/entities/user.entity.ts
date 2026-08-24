@@ -46,7 +46,7 @@ export class User implements SupabaseUser {
   provider!: AuthProvider.SUPABASE;
 
   @Index('idx_users_supabase_id', { unique: true })
-  @Column({ type: 'varchar', unique: true, nullable: false })
+  @Column({ type: 'varchar', nullable: false })
   supabaseId!: string;
 
   @CreateDateColumn({ type: 'timestamptz' })

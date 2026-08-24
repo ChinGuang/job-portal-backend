@@ -5,26 +5,36 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Exclude, Expose, Type } from 'class-transformer';
 import { SwaggerTag } from '../../common/constants/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { User } from '../users/entities/user.entity';
 
 // Response DTO for Swagger schema definition
+@Exclude()
 export class UserDto {
+  @Expose()
   @ApiProperty({
     example: '123e4567-e89b-12d3-a456-426614174000',
     description: 'User UUID from token sub',
   })
   id!: string;
 
+  @Expose()
   @ApiProperty({ example: 'user@example.com' })
   email!: string;
 }
 
 export class MeResponseDto {
+  @Expose()
+  @Type(() => UserDto)
   @ApiProperty({ type: UserDto })
   user!: UserDto;
+
+  constructor(partial: Partial<MeResponseDto>) {
+    Object.assign(this, partial);
+  }
 }
 @ApiTags(SwaggerTag.COMMON)
 @Controller()
@@ -44,8 +54,11 @@ export class AuthController {
     description: 'Unauthorized. Token missing, expired, or invalid.',
   })
   me(@CurrentUser() user: User) {
-    return {
-      user,
-    };
+    return new MeResponseDto({
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+    });
   }
 }

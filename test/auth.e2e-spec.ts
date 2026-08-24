@@ -23,7 +23,7 @@ describe('Auth (Test Seam)', () => {
     findOrCreateFromToken: jest
       .fn()
       .mockImplementation(async (claims: { id: string; email: string }) => ({
-        id: 1,
+        id: claims.id, // Set id directly to claims.id (e.g. 'user-uuid-999')
         supabaseId: claims.id,
         email: claims.email,
         provider: 'SUPABASE',
@@ -61,6 +61,7 @@ describe('Auth (Test Seam)', () => {
       .expect(200);
 
     // Verify against returned user property from controller payload
-    expect(res.body.user.supabaseId).toBe('user-uuid-999');
+    expect(res.body.user.id).toBe('user-uuid-999');
+    expect(res.body.user.supabaseId).toBeUndefined();
   });
 });

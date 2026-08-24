@@ -1,9 +1,11 @@
 // src/data-source.ts
 import dotenv from 'dotenv';
+import { resolve } from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-dotenv.config(); // Load environment variables from .env
+const env = process.env.NODE_ENV || 'local';
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+dotenv.config({ path: resolve(process.cwd(), `.env.${env}`) });
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
