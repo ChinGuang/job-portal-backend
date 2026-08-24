@@ -29,6 +29,18 @@ export class TestAuthSeam {
     customClaims: Record<string, any> = {},
     issuerUrl = 'http://localhost:3000',
   ): string {
+    const signOptions: jwt.SignOptions = {
+      algorithm: 'RS256',
+      keyid: this.kid,
+      issuer: `${issuerUrl}/auth/v1`,
+    };
+
+    // jsonwebtoken forbids passing both an `exp` claim and `expiresIn`,
+    // so only default to expiresIn when the caller hasn't set exp explicitly.
+    if (customClaims.exp === undefined) {
+      signOptions.expiresIn = '1h';
+    }
+
     return jwt.sign(
       {
         sub,
@@ -37,12 +49,7 @@ export class TestAuthSeam {
         ...customClaims,
       },
       this.privateKey,
-      {
-        algorithm: 'RS256',
-        keyid: this.kid,
-        issuer: `${issuerUrl}/auth/v1`,
-        expiresIn: '1h',
-      },
+      signOptions,
     );
   }
 }

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -18,16 +18,24 @@ describe('Auth (Test Seam)', () => {
   let app: INestApplication;
   const authSeam = new TestAuthSeam();
 
-  // Mock database service to eliminate live DB reliance in E2E tests
   const mockUserRepoService = {
     findOrCreateFromToken: jest
       .fn()
-      .mockImplementation(async (claims: { id: string; email: string }) => ({
-        id: claims.id, // Set id directly to claims.id (e.g. 'user-uuid-999')
-        supabaseId: claims.id,
-        email: claims.email,
-        provider: 'SUPABASE',
-      })),
+      .mockImplementation(async (claims: { id: string; email: string }) => {
+        // Simulate validation branch for deleted / inactive user
+        if (claims.id === 'deleted-user-uuid') {
+          throw new UnauthorizedException(
+            'User account is disabled or deleted',
+          );
+        }
+
+        return {
+          id: claims.id,
+          supabaseId: claims.id,
+          email: claims.email,
+          provider: 'SUPABASE',
+        };
+      }),
   };
 
   beforeAll(async () => {
@@ -50,18 +58,98 @@ describe('Auth (Test Seam)', () => {
     await app.close();
   });
 
-  it('allows access when token is signed by local seam key', async () => {
-    const mockToken = authSeam.mintToken('user-uuid-999', {
-      email: 'dev@test.com',
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('GET /me - Happy Path', () => {
+    it('allows access when token is signed by local seam key', async () => {
+      const mockToken = authSeam.mintToken('user-uuid-999', {
+        email: 'dev@test.com',
+      });
+
+      const res = await request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', `Bearer ${mockToken}`)
+        .expect(200);
+
+      expect(res.body.user.id).toBe('user-uuid-999');
+      expect(res.body.user.email).toBe('dev@test.com');
+      expect(res.body.user.supabaseId).toBeUndefined();
+    });
+  });
+
+  describe('GET /me - Guard & Token Rejections', () => {
+    it('returns 401 when Authorization header is missing', async () => {
+      await request(app.getHttpServer()).get('/me').expect(401);
     });
 
-    const res = await request(app.getHttpServer())
-      .get('/me')
-      .set('Authorization', `Bearer ${mockToken}`)
-      .expect(200);
+    it('returns 401 when token is malformed', async () => {
+      await request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', 'Bearer not-a-valid-jwt-token')
+        .expect(401);
+    });
 
-    // Verify against returned user property from controller payload
-    expect(res.body.user.id).toBe('user-uuid-999');
-    expect(res.body.user.supabaseId).toBeUndefined();
+    it('returns 401 when token is expired', async () => {
+      const expiredToken = authSeam.mintToken('user-uuid-999', {
+        email: 'dev@test.com',
+        exp: Math.floor(Date.now() / 1000) - 3600, // Expired 1 hour ago
+      });
+
+      await request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', `Bearer ${expiredToken}`)
+        .expect(401);
+    });
+
+    it('returns 401 when token issuer (iss) is wrong', async () => {
+      const invalidIssuerToken = authSeam.mintToken(
+        'user-uuid-999',
+        { email: 'dev@test.com' },
+        'http://wrong-issuer.com',
+      );
+
+      await request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', `Bearer ${invalidIssuerToken}`)
+        .expect(401);
+    });
+  });
+
+  describe('GET /me - Strategy Claims Validation (`SupabaseJwtStrategy.validate`)', () => {
+    it('returns 401 when sub claim is missing', async () => {
+      const tokenWithoutSub = authSeam.mintToken('', {
+        sub: undefined,
+        email: 'dev@test.com',
+      });
+
+      await request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', `Bearer ${tokenWithoutSub}`)
+        .expect(401);
+    });
+
+    it('returns 401 when email claim is not a string or is missing', async () => {
+      const tokenWithBadEmail = authSeam.mintToken('user-uuid-999', {
+        email: 12345, // Invalid payload type
+      });
+
+      await request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', `Bearer ${tokenWithBadEmail}`)
+        .expect(401);
+    });
+
+    it('returns 401 when user is deleted or rejected by UserRepoService', async () => {
+      const tokenForDeletedUser = authSeam.mintToken('deleted-user-uuid', {
+        email: 'deleted@test.com',
+      });
+
+      await request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', `Bearer ${tokenForDeletedUser}`)
+        .expect(401);
+    });
   });
 });
