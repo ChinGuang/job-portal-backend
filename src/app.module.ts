@@ -1,33 +1,22 @@
 import { Module, ValidationPipe } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { EnvKey } from './common/constants/config';
 import { AllExceptionsFilter } from './common/exception-filters/http-exception.filter';
+import { dataSourceOptions } from './data-source';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       envFilePath: `.env.${process.env.NODE_ENV || 'local'}`,
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>(EnvKey.POSTGRES_HOST),
-        port: configService.get<number>(EnvKey.POSTGRES_PORT),
-        username: configService.get<string>(EnvKey.POSTGRES_USER),
-        password: configService.get<string>(EnvKey.POSTGRES_PASSWORD),
-        database: configService.get<string>(EnvKey.POSTGRES_DB),
-        autoLoadEntities: true,
-        synchronize: ['prod', 'production'].every(
-          (v) => v != configService.get<string>(EnvKey.NODE_ENV)?.toLowerCase(),
-        ),
-      }),
+    TypeOrmModule.forRoot({
+      ...dataSourceOptions,
+      autoLoadEntities: true,
     }),
     ThrottlerModule.forRoot([
       {
@@ -35,6 +24,7 @@ import { AllExceptionsFilter } from './common/exception-filters/http-exception.f
         limit: 10,
       },
     ]),
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [

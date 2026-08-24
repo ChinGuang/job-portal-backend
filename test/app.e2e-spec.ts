@@ -24,6 +24,11 @@ describe('AppController (e2e)', () => {
     dataSource = moduleFixture.get<DataSource>(DataSource);
   });
 
+  afterEach(() => {
+    // Ensure spies and property overrides are completely cleaned up between tests
+    jest.restoreAllMocks();
+  });
+
   afterAll(async () => {
     await app.close();
   });
@@ -41,6 +46,7 @@ describe('AppController (e2e)', () => {
     });
 
     it('should return 503 status when isInitialized is false', async () => {
+      // isInitialized is a plain instance property, not a getter, so use replaceProperty
       jest.replaceProperty(dataSource, 'isInitialized', false);
 
       const response = await request(app.getHttpServer())
@@ -51,8 +57,6 @@ describe('AppController (e2e)', () => {
         statusCode: 503,
         message: 'Database connection failed.',
       });
-
-      jest.restoreAllMocks();
     });
 
     it('should return 503 status when SELECT 1 fails', async () => {
@@ -69,8 +73,6 @@ describe('AppController (e2e)', () => {
         statusCode: 503,
         message: 'Database connection failed.',
       });
-
-      jest.restoreAllMocks();
     });
   });
 });
