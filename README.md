@@ -31,6 +31,20 @@
 $ pnpm install
 ```
 
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) & Docker Compose installed.
+
+### Configuration
+1. Create a `.env` file in the root directory (Ref with .env.example)
+
+### Running the Application
+
+To build and start the container set in detached mode using the custom Compose file and environment configuration, run:
+
+```Bash
+docker compose -f docker/docker-compose.yml --env-file .env up -d --build
+```
+
 ## Compile and run the project
 
 ```bash
@@ -69,6 +83,15 @@ $ mau deploy
 ```
 
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+
+## Cleanup
+
+Stopping the Application
+To stop and remove the container set:
+
+```Bash
+docker compose -f docker/docker-compose.yml down
+```
 
 ## Resources
 
