@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { passportJwtSecret } from 'jwks-rsa';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { UserRepoService } from '../../modules/users/services/user-repo.service';
 import { StrategyName } from '../constants/strategy';
 
 @Injectable()
@@ -10,7 +11,10 @@ export class SupabaseJwtStrategy extends PassportStrategy(
   Strategy,
   StrategyName.SUPABASE_JWT,
 ) {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly userRepoService: UserRepoService,
+  ) {
     const supabaseUrl = configService.get<string>('SUPABASE_URL');
 
     super({
@@ -32,18 +36,22 @@ export class SupabaseJwtStrategy extends PassportStrategy(
   }
 
   // Runs only after cryptographic signature and expiration are verified locally
-  validate(payload: Record<string, unknown>) {
+  async validate(payload: Record<string, unknown>) {
     if (!payload.sub) {
       throw new UnauthorizedException('Invalid token payload');
     }
 
-    // Returns decoded payload attached to req.user
-    return {
-      userId: payload.sub,
-      email: payload.email,
-      role: payload.role,
-      appMetadata: payload.app_metadata,
-      userMetadata: payload.user_metadata,
-    };
+    const email = payload.email;
+    const supabaseId = payload.sub;
+    if (typeof email == 'string' && typeof supabaseId == 'string') {
+      const user = await this.userRepoService.findOrCreateFromToken({
+        id: supabaseId,
+        email,
+      });
+
+      if (!user) throw new UnauthorizedException('User deleted');
+      return user;
+    }
+    throw new UnauthorizedException('Invalid token payload');
   }
 }
