@@ -32,4 +32,26 @@ export class UserRepoService {
       where: { supabaseId: claims.id },
     });
   }
+
+  async upsertFromWebhook(record: {
+    supabaseId: string;
+    email: string;
+  }): Promise<void> {
+    // Only touches email/provider, so a soft-deleted row's deletedAt is left untouched.
+    await this.userRepository.upsert(
+      {
+        supabaseId: record.supabaseId,
+        email: record.email,
+        provider: AuthProvider.SUPABASE,
+      },
+      {
+        conflictPaths: ['supabaseId'],
+        skipUpdateIfNoValuesChanged: true,
+      },
+    );
+  }
+
+  async softDeleteBySupabaseId(supabaseId: string): Promise<void> {
+    await this.userRepository.softDelete({ supabaseId });
+  }
 }

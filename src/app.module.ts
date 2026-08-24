@@ -21,7 +21,11 @@ import { AuthModule } from './modules/auth/auth.module';
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 10,
+        // Jest sets NODE_ENV=test by default; e2e suites make far more than
+        // 10 requests/minute against a single in-memory bucket, so the
+        // ceiling is relaxed there rather than every suite fighting the
+        // global rate limiter.
+        limit: process.env.NODE_ENV === 'test' ? 1000 : 10,
       },
     ]),
     AuthModule,
