@@ -25,7 +25,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const message: string =
       typeof exceptionResponse === 'object' && exceptionResponse !== null
         ? 'message' in exceptionResponse
-          ? (exceptionResponse.message as string)
+          ? Array.isArray(exceptionResponse.message)
+            ? (exceptionResponse.message as string[]).join(', ')
+            : (exceptionResponse.message as string)
           : JSON.stringify(exceptionResponse)
         : exception instanceof Error
           ? exception.message
