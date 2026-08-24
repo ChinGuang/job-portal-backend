@@ -1,29 +1,38 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsObject, IsOptional, IsString } from 'class-validator';
 
-export enum SupabaseWebhookEventType {
-  INSERT = 'INSERT',
-  UPDATE = 'UPDATE',
-  DELETE = 'DELETE',
-}
+/** The table this webhook mirrors. Events on any other table are ignored. */
+export const MIRRORED_TABLE = 'users';
 
-// `type` is deliberately a plain string, not the enum: Supabase may deliver
-// event types this endpoint doesn't care about, and those must still 2xx
-// rather than fail DTO validation.
+/**
+ * `type` is deliberately a plain string rather than an enum: Supabase may
+ * deliver event types this endpoint doesn't handle, and those must return 2xx
+ * rather than fail validation and be retried forever.
+ */
 export class SupabaseUserWebhookDto {
+  @ApiProperty({ example: 'INSERT', description: 'Supabase event type' })
   @IsString()
   type!: string;
 
+  @ApiProperty({ example: 'users', description: 'Source table' })
   @IsString()
   table!: string;
 
+  @ApiPropertyOptional({ example: 'auth', description: 'Source schema' })
   @IsOptional()
   @IsString()
   schema?: string;
 
+  @ApiPropertyOptional({
+    description: 'Row after the change. Present on INSERT and UPDATE.',
+  })
   @IsOptional()
   @IsObject()
   record?: Record<string, unknown> | null;
 
+  @ApiPropertyOptional({
+    description: 'Row before the change. Present on UPDATE and DELETE.',
+  })
   @IsOptional()
   @IsObject()
   old_record?: Record<string, unknown> | null;

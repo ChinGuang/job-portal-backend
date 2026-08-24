@@ -9,7 +9,7 @@ import { timingSafeEqual } from 'crypto';
 import { Request } from 'express';
 import { EnvKey } from '../constants/config';
 
-const WEBHOOK_SECRET_HEADER = 'x-webhook-secret';
+export const WEBHOOK_SECRET_HEADER = 'x-webhook-secret';
 
 @Injectable()
 export class WebhookSecretGuard implements CanActivate {

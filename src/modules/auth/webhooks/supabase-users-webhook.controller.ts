@@ -1,11 +1,14 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
-import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
+import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SwaggerTag } from '../../../common/constants/swagger';
-import { WebhookSecretGuard } from '../../../common/guards/webhook-secret.guard';
+import {
+  WEBHOOK_SECRET_HEADER,
+  WebhookSecretGuard,
+} from '../../../common/guards/webhook-secret.guard';
 import { UserRepoService } from '../../users/services/user-repo.service';
 import {
+  MIRRORED_TABLE,
   SupabaseUserWebhookDto,
-  SupabaseWebhookEventType,
 } from './supabase-user-webhook.dto';
 
 @ApiTags(SwaggerTag.WEBHOOKS)
@@ -16,37 +19,46 @@ export class SupabaseUsersWebhookController {
   @Post('users')
   @UseGuards(WebhookSecretGuard)
   @HttpCode(200)
-  // Not part of the public API surface consumers integrate against.
-  @ApiExcludeEndpoint()
+  @ApiOperation({
+    summary: 'Mirror a Supabase auth.users change into the local user table',
+    description:
+      'INSERT and UPDATE upsert the mirrored user; DELETE soft-deletes it. ' +
+      'Event types and tables this endpoint does not handle still return 200 ' +
+      'so Supabase stops retrying.',
+  })
+  @ApiHeader({
+    name: WEBHOOK_SECRET_HEADER,
+    description: 'Shared secret agreed with Supabase.',
+    required: true,
+  })
+  @ApiResponse({ status: 200, description: 'Event accepted or ignored.' })
+  @ApiResponse({
+    status: 401,
+    description: 'Shared secret missing or incorrect.',
+  })
   async handleUserEvent(
     @Body() payload: SupabaseUserWebhookDto,
   ): Promise<{ received: true }> {
-    switch (payload.type as SupabaseWebhookEventType) {
-      case SupabaseWebhookEventType.INSERT:
-      case SupabaseWebhookEventType.UPDATE: {
-        const id = payload.record?.id;
-        const email = payload.record?.email;
-        if (typeof id === 'string' && typeof email === 'string') {
-          await this.userRepoService.upsertFromWebhook({
-            supabaseId: id,
-            email,
-          });
-        }
-        break;
-      }
-      case SupabaseWebhookEventType.DELETE: {
-        const id = payload.old_record?.id;
-        if (typeof id === 'string') {
-          await this.userRepoService.softDeleteBySupabaseId(id);
-        }
-        break;
-      }
-      default:
-        // Ignored event type — fall through and still return 2xx so
-        // Supabase stops retrying.
-        break;
+    if (payload.table !== MIRRORED_TABLE) {
+      return { received: true };
     }
 
+    if (payload.type === 'INSERT' || payload.type === 'UPDATE') {
+      const supabaseId = payload.record?.id;
+      const email = payload.record?.email;
+
+      if (typeof supabaseId === 'string' && typeof email === 'string') {
+        await this.userRepoService.upsertBySupabaseId({ supabaseId, email });
+      }
+    } else if (payload.type === 'DELETE') {
+      const supabaseId = payload.old_record?.id;
+
+      if (typeof supabaseId === 'string') {
+        await this.userRepoService.softDeleteBySupabaseId(supabaseId);
+      }
+    }
+
+    // Anything else is an event type this endpoint deliberately ignores.
     return { received: true };
   }
 }

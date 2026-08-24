@@ -21,21 +21,23 @@ describe('Auth (Test Seam)', () => {
   const mockUserRepoService = {
     findOrCreateFromToken: jest
       .fn()
-      .mockImplementation(async (claims: { id: string; email: string }) => {
-        // Simulate validation branch for deleted / inactive user
-        if (claims.id === 'deleted-user-uuid') {
-          throw new UnauthorizedException(
-            'User account is disabled or deleted',
-          );
-        }
+      .mockImplementation(
+        async (identity: { supabaseId: string; email: string }) => {
+          // Simulate validation branch for deleted / inactive user
+          if (identity.supabaseId === 'deleted-user-uuid') {
+            throw new UnauthorizedException(
+              'User account is disabled or deleted',
+            );
+          }
 
-        return {
-          id: claims.id,
-          supabaseId: claims.id,
-          email: claims.email,
-          provider: 'SUPABASE',
-        };
-      }),
+          return {
+            id: identity.supabaseId,
+            supabaseId: identity.supabaseId,
+            email: identity.email,
+            provider: 'SUPABASE',
+          };
+        },
+      ),
   };
 
   beforeAll(async () => {
