@@ -24,7 +24,7 @@ import { AllExceptionsFilter } from './common/exception-filters/http-exception.f
         password: configService.get<string>(EnvKey.POSTGRES_PASSWORD),
         database: configService.get<string>(EnvKey.POSTGRES_DB),
         autoLoadEntities: true,
-        synchronize: configService.get<string>(EnvKey.NODE_ENV) == 'prod',
+        synchronize: configService.get<string>(EnvKey.NODE_ENV) != 'prod',
       }),
     }),
     ThrottlerModule.forRoot([
@@ -43,13 +43,11 @@ import { AllExceptionsFilter } from './common/exception-filters/http-exception.f
     },
     {
       provide: APP_PIPE,
-      useFactory: () => {
-        new ValidationPipe({
-          whitelist: true,
-          forbidNonWhitelisted: true,
-          transform: true,
-        });
-      },
+      useValue: new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     },
     {
       provide: APP_FILTER,

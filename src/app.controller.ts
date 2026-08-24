@@ -44,14 +44,15 @@ export class AppController {
     description: 'Database connection failed or is not initialized.',
     type: HealthCheckErrorDto,
   })
-  checkHealth() {
+  async checkHealth() {
     try {
       const isInitialized = this.dataSource.isInitialized;
       if (!isInitialized) {
         throw new Error('DB not initialized');
       }
+      await this.dataSource.query('SELECT 1');
     } catch {
-      return new ServiceUnavailableException('Database connection failed.');
+      throw new ServiceUnavailableException('Database connection failed.');
     }
     return {
       status: 'ok',
