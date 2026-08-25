@@ -18,19 +18,20 @@ describe('Auth (Test Seam)', () => {
     findOrCreateFromToken: jest
       .fn()
       .mockImplementation((identity: { supabaseId: string; email: string }) => {
-        // Simulate validation branch for deleted / inactive user
+        // Mirror the real method's Promise<User | null> contract: reject for a
+        // deleted/inactive user, resolve with the user otherwise.
         if (identity.supabaseId === 'deleted-user-uuid') {
-          throw new UnauthorizedException(
-            'User account is disabled or deleted',
+          return Promise.reject(
+            new UnauthorizedException('User account is disabled or deleted'),
           );
         }
 
-        return {
+        return Promise.resolve({
           id: identity.supabaseId,
           supabaseId: identity.supabaseId,
           email: identity.email,
           provider: 'SUPABASE',
-        };
+        });
       }),
   };
 

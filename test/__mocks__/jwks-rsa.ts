@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-
 // Manual Jest mock for the `jwks-rsa` node module, shared by every e2e spec.
 //
 // Each spec opts in with a single hoisted `jest.mock('jwks-rsa')` line (no
