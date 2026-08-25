@@ -29,6 +29,9 @@ export class EmployerProfile implements IEmployerProfile {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column({ type: 'uuid', nullable: false })
+  userId!: string;
+
   @OneToOne(() => User)
   @JoinColumn()
   user!: User;

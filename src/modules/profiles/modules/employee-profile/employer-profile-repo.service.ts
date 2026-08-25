@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
@@ -19,7 +20,7 @@ export class EmployerProfileRepoService {
     payload: Omit<
       EmployerProfile,
       'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'user'
-    > & { user: { id: string } },
+    >,
   ): Promise<EmployerProfile> {
     try {
       const profile = this.employerProfileRepository.create(payload);
@@ -41,5 +42,15 @@ export class EmployerProfileRepoService {
         'Failed to create employer profile.',
       );
     }
+  }
+
+  async readProfile(userId: string): Promise<EmployerProfile> {
+    const profile = await this.employerProfileRepository.findOne({
+      where: { userId },
+    });
+    if (!profile) {
+      throw new NotFoundException('Employer profile not found.');
+    }
+    return profile;
   }
 }
