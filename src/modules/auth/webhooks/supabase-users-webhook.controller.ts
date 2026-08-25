@@ -8,6 +8,7 @@ import {
 import { UserRepoService } from '../../users/services/user-repo.service';
 import {
   MIRRORED_TABLE,
+  SUPABASE_DATABASE_EVENT,
   SupabaseUserWebhookDto,
 } from './supabase-user-webhook.dto';
 
@@ -43,21 +44,31 @@ export class SupabaseUsersWebhookController {
       return { received: true };
     }
 
-    if (payload.type === 'INSERT' || payload.type === 'UPDATE') {
-      const supabaseId = payload.record?.id;
-      const email = payload.record?.email;
+    switch (payload.type) {
+      case SUPABASE_DATABASE_EVENT.INSERT:
+      case SUPABASE_DATABASE_EVENT.UPDATE: {
+        const supabaseId = payload.record?.id;
+        const email = payload.record?.email;
 
-      if (typeof supabaseId === 'string' && typeof email === 'string') {
-        await this.userRepoService.upsertBySupabaseId({ supabaseId, email });
+        if (typeof supabaseId === 'string' && typeof email === 'string') {
+          await this.userRepoService.upsertBySupabaseId({ supabaseId, email });
+        }
+        break;
       }
-    } else if (payload.type === 'DELETE') {
-      const supabaseId = payload.old_record?.id;
+      case SUPABASE_DATABASE_EVENT.DELETE: {
+        const supabaseId = payload.old_record?.id;
 
-      if (typeof supabaseId === 'string') {
-        await this.userRepoService.softDeleteBySupabaseId(supabaseId);
+        if (typeof supabaseId === 'string') {
+          await this.userRepoService.softDeleteBySupabaseId(supabaseId);
+        }
+        break;
       }
+      default:
+        console.warn(
+          `${SupabaseUsersWebhookController.name} ${this.handleUserEvent.name}: Unknown Supabase Database event: ${payload.type as string}`,
+        );
+        break;
     }
-
     // Anything else is an event type this endpoint deliberately ignores.
     return { received: true };
   }
