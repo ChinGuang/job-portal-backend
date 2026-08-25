@@ -10,6 +10,7 @@ async function bootstrap() {
     .setDescription('The Job Portal Backend API')
     .addTag(SwaggerTag.COMMON)
     .addTag(SwaggerTag.WEBHOOKS)
+    .addTag(SwaggerTag.PROFILES)
     .setVersion('1.0')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
