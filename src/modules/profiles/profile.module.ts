@@ -1,13 +1,9 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { JobSeekerProfile } from './entities/job-seeker-profile.entity';
-import { JobSeekerProfileController } from './job-seeker-profile.controller';
-import { JobSeekerProfileService } from './services/job-seeker-profile.service';
+import { EmployerProfileModule } from './modules/employee-profile/employer-profile.module';
+import { JobSeekerProfileModule } from './modules/job-seeker-profile/job-seeker-profile.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([JobSeekerProfile])],
-  controllers: [JobSeekerProfileController],
-  providers: [JobSeekerProfileService],
-  exports: [JobSeekerProfileService],
+  imports: [JobSeekerProfileModule, EmployerProfileModule],
+  exports: [JobSeekerProfileModule, EmployerProfileModule],
 })
 export class ProfileModule {}
