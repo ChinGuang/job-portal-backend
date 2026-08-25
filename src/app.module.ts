@@ -9,6 +9,7 @@ import { EnvKey } from './common/constants/config';
 import { AllExceptionsFilter } from './common/exception-filters/http-exception.filter';
 import { dataSourceOptions } from './data-source';
 import { AuthModule } from './modules/auth/auth.module';
+import { ProfileModule } from './modules/profiles/profile.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AuthModule } from './modules/auth/auth.module';
       ],
     }),
     AuthModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [
