@@ -174,21 +174,36 @@ describe('Employer profile (e2e)', () => {
       await request(app.getHttpServer()).get(URL).expect(401);
     });
 
-    it("never returns another user's profile (isolation)", async () => {
+    it('returns each caller their own profile, never the other user’s (isolation)', async () => {
+      // Both users own a DISTINCT profile. The endpoint keys only on the
+      // caller's own id, so the meaningful isolation property is that each
+      // caller reads strictly their own row even while the other's exists —
+      // not merely that a profile-less user gets a 404.
       await request(app.getHttpServer())
         .post(URL)
-        .set('Authorization', authHeader('user-10-owner'))
-        .send({ companyName: 'Owner Co' })
+        .set('Authorization', authHeader('user-10-a'))
+        .send({ companyName: 'Company A' })
         .expect(201);
 
-      // The second user has no profile of their own — GET must 404, not
-      // leak the first user's profile.
-      const res = await request(app.getHttpServer())
-        .get(URL)
-        .set('Authorization', authHeader('user-10-other'))
-        .expect(404);
+      await request(app.getHttpServer())
+        .post(URL)
+        .set('Authorization', authHeader('user-10-b'))
+        .send({ companyName: 'Company B' })
+        .expect(201);
 
-      expect(JSON.stringify(res.body)).not.toContain('Owner Co');
+      const aRes = await request(app.getHttpServer())
+        .get(URL)
+        .set('Authorization', authHeader('user-10-a'))
+        .expect(200);
+      expect(aRes.body.companyName).toBe('Company A');
+      expect(JSON.stringify(aRes.body)).not.toContain('Company B');
+
+      const bRes = await request(app.getHttpServer())
+        .get(URL)
+        .set('Authorization', authHeader('user-10-b'))
+        .expect(200);
+      expect(bRes.body.companyName).toBe('Company B');
+      expect(JSON.stringify(bRes.body)).not.toContain('Company A');
     });
   });
 
@@ -271,26 +286,41 @@ describe('Employer profile (e2e)', () => {
         .expect(400);
     });
 
-    it("cannot update another user's profile (isolation)", async () => {
+    it('a PATCH by one user changes only their own profile, never the other user’s (isolation)', async () => {
+      // Both users own a profile. A mutation by B must land on B's row and
+      // leave A's untouched — proving the write is scoped to the caller even
+      // when another user's row exists to be clobbered.
       await request(app.getHttpServer())
         .post(URL)
-        .set('Authorization', authHeader('user-15-owner'))
-        .send({ companyName: 'Owner Co' })
+        .set('Authorization', authHeader('user-15-a'))
+        .send({ companyName: 'Company A' })
         .expect(201);
 
-      // The "other" user has no profile — PATCH must 404 for them, never
-      // touch the owner's row.
+      await request(app.getHttpServer())
+        .post(URL)
+        .set('Authorization', authHeader('user-15-b'))
+        .send({ companyName: 'Company B' })
+        .expect(201);
+
       await request(app.getHttpServer())
         .patch(URL)
-        .set('Authorization', authHeader('user-15-other'))
-        .send({ companyName: 'Hijacked' })
-        .expect(404);
-
-      const res = await request(app.getHttpServer())
-        .get(URL)
-        .set('Authorization', authHeader('user-15-owner'))
+        .set('Authorization', authHeader('user-15-b'))
+        .send({ companyName: 'Company B Renamed' })
         .expect(200);
-      expect(res.body.companyName).toBe('Owner Co');
+
+      // B's own row reflects the change.
+      const bRes = await request(app.getHttpServer())
+        .get(URL)
+        .set('Authorization', authHeader('user-15-b'))
+        .expect(200);
+      expect(bRes.body.companyName).toBe('Company B Renamed');
+
+      // A's row is untouched by B's PATCH.
+      const aRes = await request(app.getHttpServer())
+        .get(URL)
+        .set('Authorization', authHeader('user-15-a'))
+        .expect(200);
+      expect(aRes.body.companyName).toBe('Company A');
     });
   });
 
