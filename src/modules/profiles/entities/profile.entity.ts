@@ -32,29 +32,29 @@ export class EmployerProfile implements IEmployerProfile {
   @Column({ type: 'uuid', nullable: false })
   userId!: string;
 
-  @OneToOne(() => User)
+  @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn()
   user!: User;
 
-  @Column({ type: 'varchar', nullable: false })
+  @Column({ type: 'varchar', length: 255, nullable: false })
   companyName!: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   websiteUrl?: string | undefined;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   logoUrl?: string | undefined;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   industry?: string | undefined;
 
   @Column({ type: 'varchar', nullable: true })
   companySize?: string | undefined;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 2000, nullable: true })
   description?: string | undefined;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 2000, nullable: true })
   address?: string | undefined;
 
   @CreateDateColumn({ type: 'timestamptz' })
