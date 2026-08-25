@@ -17,7 +17,7 @@ export enum SUPABASE_DATABASE_EVENT {
 export class SupabaseUserWebhookDto {
   @ApiProperty({ example: 'INSERT', description: 'Supabase event type' })
   @IsString()
-  type!: SUPABASE_DATABASE_EVENT;
+  type!: SUPABASE_DATABASE_EVENT | string;
 
   @ApiProperty({ example: 'users', description: 'Source table' })
   @IsString()

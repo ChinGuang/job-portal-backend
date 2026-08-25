@@ -1,4 +1,11 @@
-import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Logger,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SwaggerTag } from '../../../common/constants/swagger';
 import {
@@ -16,7 +23,7 @@ import {
 @Controller('webhooks/supabase')
 export class SupabaseUsersWebhookController {
   constructor(private readonly userRepoService: UserRepoService) {}
-
+  private readonly logger = new Logger(SupabaseUsersWebhookController.name);
   @Post('users')
   @UseGuards(WebhookSecretGuard)
   @HttpCode(200)
@@ -64,12 +71,12 @@ export class SupabaseUsersWebhookController {
         break;
       }
       default:
-        console.warn(
-          `${SupabaseUsersWebhookController.name} ${this.handleUserEvent.name}: Unknown Supabase Database event: ${payload.type as string}`,
+        // Anything else is an event type this endpoint deliberately ignores.
+        this.logger.warn(
+          `${this.handleUserEvent.name}: Unknown Supabase Database event: ${payload.type}`,
         );
         break;
     }
-    // Anything else is an event type this endpoint deliberately ignores.
     return { received: true };
   }
 }
