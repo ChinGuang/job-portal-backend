@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { StrategyName } from '../../common/constants/strategy';
+import { WebhookSecretGuard } from '../../common/guards/webhook-secret.guard';
 import { SupabaseJwtStrategy } from '../../common/strategies/supabase-jwt.strategy';
 import { UserModule } from '../users/user.module';
 import { AuthController } from './auth.controller';
+import { SupabaseUsersWebhookController } from './webhooks/supabase-users-webhook.controller';
 
 @Module({
   imports: [
@@ -12,8 +14,8 @@ import { AuthController } from './auth.controller';
     PassportModule.register({ defaultStrategy: StrategyName.SUPABASE_JWT }),
     UserModule,
   ],
-  providers: [SupabaseJwtStrategy],
-  controllers: [AuthController],
+  providers: [SupabaseJwtStrategy, WebhookSecretGuard],
+  controllers: [AuthController, SupabaseUsersWebhookController],
   exports: [PassportModule],
 })
 export class AuthModule {}

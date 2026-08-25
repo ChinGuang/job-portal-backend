@@ -46,7 +46,7 @@ export class SupabaseJwtStrategy extends PassportStrategy(
     const supabaseId = payload.sub;
     if (typeof email == 'string' && typeof supabaseId == 'string') {
       const user = await this.userRepoService.findOrCreateFromToken({
-        id: supabaseId,
+        supabaseId,
         email,
       });
 

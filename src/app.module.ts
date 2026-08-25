@@ -1,10 +1,11 @@
 import { Module, ValidationPipe } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { EnvKey } from './common/constants/config';
 import { AllExceptionsFilter } from './common/exception-filters/http-exception.filter';
 import { dataSourceOptions } from './data-source';
 import { AuthModule } from './modules/auth/auth.module';
@@ -18,12 +19,18 @@ import { AuthModule } from './modules/auth/auth.module';
       ...dataSourceOptions,
       autoLoadEntities: true,
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 10,
-      },
-    ]),
+    // Rate limits are environment configuration: the demo defaults apply
+    // unless an environment overrides them.
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          ttl: configService.get<number>(EnvKey.THROTTLE_TTL) ?? 60000,
+          limit: configService.get<number>(EnvKey.THROTTLE_LIMIT) ?? 10,
+        },
+      ],
+    }),
     AuthModule,
   ],
   controllers: [AppController],
