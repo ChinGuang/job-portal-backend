@@ -1,13 +1,13 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { SwaggerTag } from '../../common/constants/swagger';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { User } from '../users/entities/user.entity';
+import { SwaggerTag } from '../../../../common/constants/swagger';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
+import { User } from '../../../users/entities/user.entity';
+import { JobSeekerProfile } from '../../entities/profile.entity';
 import { CreateJobSeekerProfileDto } from './dto/create-job-seeker-profile.dto';
 import { JobSeekerProfileResponseDto } from './dto/job-seeker-profile-response.dto';
 import { UpdateJobSeekerProfileDto } from './dto/update-job-seeker-profile.dto';
-import { JobSeekerProfile } from './entities/job-seeker-profile.entity';
 import { JobSeekerProfileService } from './services/job-seeker-profile.service';
 
 function toResponseDto(profile: JobSeekerProfile): JobSeekerProfileResponseDto {
