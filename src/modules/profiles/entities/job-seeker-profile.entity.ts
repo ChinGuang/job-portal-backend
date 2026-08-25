@@ -43,6 +43,12 @@ export class JobSeekerProfile {
   @Column({ type: 'int', name: 'years_of_experience', nullable: true })
   yearsOfExperience?: number | null;
 
+  // Storage object path of the uploaded résumé (the bucket is private, so
+  // this is a key, not a publicly usable URL — a signed URL is issued
+  // on demand from it).
+  @Column({ type: 'varchar', name: 'resume_url', nullable: true })
+  resumeUrl?: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 

@@ -25,6 +25,9 @@ export class JobSeekerProfileResponseDto {
   @ApiPropertyOptional()
   yearsOfExperience?: number | null;
 
+  @ApiPropertyOptional()
+  resumeUrl?: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 
