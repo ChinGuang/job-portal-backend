@@ -15,13 +15,13 @@ function toResponseDto(profile: EmployerProfile): EmployerProfileResponseDto {
   });
 }
 
+@UseGuards(JwtAuthGuard)
 @Controller('/profiles/employer')
 export class EmployerProfileController {
   constructor(
     private readonly employerProfileRepoService: EmployerProfileRepoService,
   ) {}
 
-  @UseGuards(JwtAuthGuard)
   @Post()
   async createProfile(
     @CurrentUser('id') userId: string,
@@ -34,7 +34,6 @@ export class EmployerProfileController {
     return employerProfile;
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get()
   async getProfile(
     @CurrentUser('id') userId: string,
@@ -42,7 +41,6 @@ export class EmployerProfileController {
     return await this.employerProfileRepoService.readProfile(userId);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch()
   @ApiOperation({ summary: "Update the caller's employer profile" })
   @ApiResponse({ status: 200, type: EmployerProfileResponseDto })
