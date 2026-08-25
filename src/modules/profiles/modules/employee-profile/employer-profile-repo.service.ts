@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { TypeormErrorCode } from '../../../../common/constants/database';
 import { EmployerProfile } from '../../entities/profile.entity';
+import { UpdateEmployerProfileDto } from './dto/update-employer-profile.dto';
 
 @Injectable()
 export class EmployerProfileRepoService {
@@ -52,5 +53,14 @@ export class EmployerProfileRepoService {
       throw new NotFoundException('Employer profile not found.');
     }
     return profile;
+  }
+
+  async update(
+    userId: string,
+    dto: UpdateEmployerProfileDto,
+  ): Promise<EmployerProfile> {
+    const profile = await this.readProfile(userId);
+    Object.assign(profile, dto);
+    return this.employerProfileRepository.save(profile);
   }
 }
