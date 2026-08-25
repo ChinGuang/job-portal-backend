@@ -42,6 +42,7 @@ export class EmployerProfileController {
     return await this.employerProfileRepoService.readProfile(userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch()
   @ApiOperation({ summary: "Update the caller's employer profile" })
   @ApiResponse({ status: 200, type: EmployerProfileResponseDto })
