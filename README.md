@@ -71,6 +71,64 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+## Demo harness
+
+The API issues no tokens of its own — Supabase does. `demo/index.html` is a
+single throwaway static page (not a product frontend) that signs in against
+Supabase directly and prints the resulting access token so you can paste it
+into Swagger's "Authorize" dialog at `/api`.
+
+### Running the demo page
+
+Serve the page over `http(s)`, not `file://` — Google's OAuth redirect will
+not complete correctly from a `file://` origin:
+
+```bash
+pnpm demo
+```
+
+This serves `demo/` at `http://localhost:5500`. Open it, then fill in your
+Supabase project's **URL** and **anon (public) key** (Project Settings → API
+in the Supabase dashboard) — these are saved to the browser's local storage
+so you only need to enter them once per browser.
+
+- **Email/password**: enter credentials for an existing Supabase user and
+  click "Sign in with email".
+- **Google**: click "Sign in with Google". First add
+  `http://localhost:5500/` (with the trailing slash — that's the exact URL
+  the page redirects back to) to Supabase's Auth → URL Configuration →
+  **Redirect URLs**, or the redirect back to the demo page will be rejected.
+
+Either flow prints the access token in a copyable box once signed in.
+
+### Supabase webhook via ngrok
+
+The API mirrors Supabase users locally through a Database Webhook on
+`auth.users` (see [`SupabaseUsersWebhookController`](src/modules/auth/webhooks/supabase-users-webhook.controller.ts)
+at `POST /webhooks/supabase/users`). Lazy provisioning in the auth guard
+means the webhook isn't required for the API to work, but wiring it up lets
+you demo the mirror staying in sync (including deletions) without waiting
+for the first authenticated request.
+
+Because a public URL is needed for Supabase to reach your local API, and
+ngrok's free tier issues a new URL on every restart, this is a manual,
+per-session step:
+
+1. Start the API (`pnpm start:dev`), then start ngrok pointed at it:
+   ```bash
+   ngrok http 3000
+   ```
+2. Copy the `https://<random>.ngrok-free.app` forwarding URL ngrok prints.
+3. In the Supabase dashboard: **Database → Webhooks**, edit (or create) the
+   webhook on `auth.users` for `INSERT`/`UPDATE`/`DELETE`, and set its URL to:
+   ```
+   https://<random>.ngrok-free.app/webhooks/supabase/users
+   ```
+4. Set the webhook's `x-webhook-secret` header to match `SUPABASE_WEBHOOK_SECRET`
+   in your `.env` — requests without it are rejected with 401.
+5. Repeat steps 1–3 whenever you restart ngrok, since the forwarding URL
+   changes each time.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

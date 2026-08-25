@@ -18,6 +18,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "bash scripts/run-e2e.sh",
+    "demo": "npx --yes serve demo -l 5500",
     "typeorm": "typeorm-ts-node-commonjs",
     "typeorm:env": "dotenv -e .env.local -- pnpm typeorm",
     "migration:generate": "pnpm typeorm:env migration:generate src/database/migrations/CreateUsersTable -d src/data-source.ts",
