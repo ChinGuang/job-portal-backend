@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -7,13 +5,8 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { TestAuthSeam } from './helpers/auth.helper';
 
-// Mock jwks-rsa to return process.env.TEST_PUBLIC_KEY directly in-memory,
-// matching the seam used in test/auth.e2e-spec.ts.
-jest.mock('jwks-rsa', () => ({
-  passportJwtSecret: jest.fn(() => (_req: any, _rawJwtToken: any, cb: any) => {
-    cb(null, process.env.TEST_PUBLIC_KEY);
-  }),
-}));
+// Implementation lives in test/__mocks__/jwks-rsa.ts.
+jest.mock('jwks-rsa');
 
 const WEBHOOK_SECRET = process.env.SUPABASE_WEBHOOK_SECRET as string;
 const WEBHOOK_URL = '/webhooks/supabase/users';

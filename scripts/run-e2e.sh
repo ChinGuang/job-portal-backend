@@ -11,6 +11,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# This suite talks to the docker-compose Postgres only (JWKS and storage are
+# mocked, and nothing here fires the Supabase "create-user" webhook), so it
+# deliberately does NOT start the Supabase stack. To exercise the real
+# Supabase/webhook path, use `pnpm supabase:start` (see scripts/supabase-dev.sh)
+# and run the relevant tests against it separately.
+
 echo "🚀 Starting test database container..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --wait
 
