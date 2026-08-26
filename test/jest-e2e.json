@@ -6,5 +6,8 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "transformIgnorePatterns": ["node_modules/\\.pnpm/(?!(jose)@)"]
+  "transformIgnorePatterns": ["node_modules/\\.pnpm/(?!(jose)@)"],
+  "moduleNameMapper": {
+    "^file-type$": "<rootDir>/helpers/file-type.mock.ts"
+  }
 }

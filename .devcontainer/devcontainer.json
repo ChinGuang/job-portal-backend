@@ -1,0 +1,46 @@
+{
+  // Dev container for GitHub Codespaces (and local VS Code "Reopen in Container").
+  // Goal: reproduce the laptop environment — Node 24 + pnpm, Docker (for the
+  // docker-compose test Postgres and the local Supabase stack), and the
+  // Claude Code CLI — so work can continue from a browser when offline.
+  "name": "job-portal-backend",
+
+  // Node 24 to match .nvmrc. The devcontainers image ships git, gh, and
+  // build tools; corepack (below) provides pnpm.
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:24-bookworm",
+
+  "features": {
+    // Gives the container its own Docker daemon, so `docker compose`
+    // (docker/test/docker-compose.yml) and `npx supabase start` work.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  // Forwarded so you can reach services from the browser preview:
+  //   3000  NestJS app        5433  test Postgres (docker-compose)
+  //   54321 Supabase API      54323 Supabase Studio
+  "forwardPorts": [3000, 5433, 54321, 54323],
+  "portsAttributes": {
+    "3000": { "label": "api" },
+    "5433": { "label": "test-postgres" },
+    "54321": { "label": "supabase-api" },
+    "54323": { "label": "supabase-studio" }
+  },
+
+  // Runs once after the container is created. Enable pnpm via corepack,
+  // install project deps (this also provides `npx supabase`), and install
+  // the Claude Code CLI globally so `claude` is on PATH.
+  "postCreateCommand": "corepack enable && corepack prepare pnpm@latest --activate && pnpm install && npm install -g @anthropic-ai/claude-code",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "anthropic.claude-code"
+      ]
+    }
+  },
+
+  // The image's non-root user; Docker-in-docker adds it to the docker group.
+  "remoteUser": "node"
+}
