@@ -1,4 +1,16 @@
-import { crc32 } from 'zlib';
+// Plain CRC-32 (IEEE 802.3, the algorithm ZIP uses). Implemented locally
+// rather than importing `crc32` from 'zlib', which only exists on Node >= 22.2
+// and would throw on Node 20 LTS.
+function crc32(buf: Buffer): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc ^= buf[i];
+    for (let bit = 0; bit < 8; bit++) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
 
 function u16(n: number): Buffer {
   const b = Buffer.alloc(2);

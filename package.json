@@ -18,6 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "bash scripts/run-e2e.sh",
+    "supabase:start": "bash scripts/supabase-dev.sh start",
+    "supabase:stop": "bash scripts/supabase-dev.sh stop",
     "smoke:storage": "dotenv -e .env.local -- ts-node scripts/smoke-storage.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "typeorm:env": "dotenv -e .env.local -- pnpm typeorm",

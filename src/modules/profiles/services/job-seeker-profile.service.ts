@@ -17,8 +17,9 @@ const POSTGRES_UNIQUE_VIOLATION = '23505';
 
 const RESUME_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
   'application/pdf': 'pdf',
+  // Legacy .doc: ResumeFileTypeValidator normalizes the OLE container
+  // (application/x-cfb) to application/msword before it reaches here.
   'application/msword': 'doc',
-  'application/x-cfb': 'doc',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
     'docx',
 };

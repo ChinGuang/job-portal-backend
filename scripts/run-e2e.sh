@@ -8,18 +8,17 @@ ENV_FILE=".env.test"
 cleanup() {
   echo "🧹 Cleaning up test container..."
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down -v
-  # npx supabase stop --no-backup
 }
 trap cleanup EXIT
 
+# This suite talks to the docker-compose Postgres only (JWKS and storage are
+# mocked, and nothing here fires the Supabase "create-user" webhook), so it
+# deliberately does NOT start the Supabase stack. To exercise the real
+# Supabase/webhook path, use `pnpm supabase:start` (see scripts/supabase-dev.sh)
+# and run the relevant tests against it separately.
+
 echo "🚀 Starting test database container..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --wait
-
-echo "🧼 Wiping old state and starting fresh Supabase instance..."
-npx supabase stop --no-backup
-# `supabase start` applies supabase/migrations, including the "create-user"
-# database webhook on auth.users (20260826120000_create_user_webhook.sql).
-npx supabase start
 
 echo "⏳ Container is ready! Running E2E tests..."
 dotenv -e "$ENV_FILE" -- jest --config ./test/jest-e2e.json --runInBand
