@@ -7,12 +7,8 @@ import { AppModule } from '../src/app.module';
 import { UserRepoService } from '../src/modules/users/services/user-repo.service';
 import { TestAuthSeam } from './helpers/auth.helper';
 
-// Mock jwks-rsa to return process.env.TEST_PUBLIC_KEY directly in-memory
-jest.mock('jwks-rsa', () => ({
-  passportJwtSecret: jest.fn(() => (_req: any, _rawJwtToken: any, cb: any) => {
-    cb(null, process.env.TEST_PUBLIC_KEY);
-  }),
-}));
+// Implementation lives in test/__mocks__/jwks-rsa.ts.
+jest.mock('jwks-rsa');
 
 describe('Auth (Test Seam)', () => {
   let app: INestApplication;
@@ -21,23 +17,22 @@ describe('Auth (Test Seam)', () => {
   const mockUserRepoService = {
     findOrCreateFromToken: jest
       .fn()
-      .mockImplementation(
-        async (identity: { supabaseId: string; email: string }) => {
-          // Simulate validation branch for deleted / inactive user
-          if (identity.supabaseId === 'deleted-user-uuid') {
-            throw new UnauthorizedException(
-              'User account is disabled or deleted',
-            );
-          }
+      .mockImplementation((identity: { supabaseId: string; email: string }) => {
+        // Mirror the real method's Promise<User | null> contract: reject for a
+        // deleted/inactive user, resolve with the user otherwise.
+        if (identity.supabaseId === 'deleted-user-uuid') {
+          return Promise.reject(
+            new UnauthorizedException('User account is disabled or deleted'),
+          );
+        }
 
-          return {
-            id: identity.supabaseId,
-            supabaseId: identity.supabaseId,
-            email: identity.email,
-            provider: 'SUPABASE',
-          };
-        },
-      ),
+        return Promise.resolve({
+          id: identity.supabaseId,
+          supabaseId: identity.supabaseId,
+          email: identity.email,
+          provider: 'SUPABASE',
+        });
+      }),
   };
 
   beforeAll(async () => {

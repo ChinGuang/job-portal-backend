@@ -7,13 +7,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
-import type { StorageService } from '../../storage/storage.service.interface';
-import { STORAGE_SERVICE } from '../../storage/storage.tokens';
+import { TypeormErrorCode } from '../../../../../common/constants/database';
+import type { StorageService } from '../../../../storage/storage.service.interface';
+import { STORAGE_SERVICE } from '../../../../storage/storage.tokens';
+import { JobSeekerProfile } from '../../../entities/profile.entity';
 import { CreateJobSeekerProfileDto } from '../dto/create-job-seeker-profile.dto';
 import { UpdateJobSeekerProfileDto } from '../dto/update-job-seeker-profile.dto';
-import { JobSeekerProfile } from '../entities/job-seeker-profile.entity';
-
-const POSTGRES_UNIQUE_VIOLATION = '23505';
 
 const RESUME_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
   'application/pdf': 'pdf',
@@ -60,7 +59,7 @@ export class JobSeekerProfileService {
       if (
         error instanceof QueryFailedError &&
         (error as unknown as { code?: string }).code ===
-          POSTGRES_UNIQUE_VIOLATION
+          TypeormErrorCode.UNIQUE_CONSTRAINT_VIOLATION
       ) {
         throw new ConflictException('Job seeker profile already exists.');
       }
