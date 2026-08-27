@@ -16,7 +16,7 @@ import { ApplicationListResponseDto } from './dto/application-list-response.dto'
 import {
   toApplicationDetailDto,
   toApplicationDto,
-} from './dto/application-mapper';
+} from './mappers/application.mapper';
 import { ListMyApplicationsQueryDto } from './dto/list-my-applications-query.dto';
 import { ApplicationRepoService } from './services/application-repo.service';
 

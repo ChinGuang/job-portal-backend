@@ -53,3 +53,25 @@ export const PUBLICLY_VISIBLE_STATUSES: readonly JobStatus[] = [
   JobStatus.PUBLISHED,
   JobStatus.CLOSED,
 ];
+
+/**
+ * Whether a visitor is allowed to see a listing in this status at all — the
+ * predicate form of PUBLICLY_VISIBLE_STATUSES, for the paths that ask about
+ * one listing rather than filtering a query.
+ */
+export function isPubliclyVisible(status: JobStatus): boolean {
+  return PUBLICLY_VISIBLE_STATUSES.includes(status);
+}
+
+/**
+ * Whether a listing in this status is still taking applications.
+ *
+ * PUBLISHED alone, and deliberately narrower than visibility: CLOSED is
+ * readable precisely so a candidate learns the role has ended, which is the
+ * opposite of letting them apply to it. Applying asks this rather than
+ * comparing statuses itself, so that what a status *means* stays decided in
+ * one place.
+ */
+export function acceptsApplications(status: JobStatus): boolean {
+  return status === JobStatus.PUBLISHED;
+}

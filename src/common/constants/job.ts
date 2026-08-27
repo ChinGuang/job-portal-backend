@@ -17,13 +17,8 @@ export const JobLimit = {
   MAX_SALARY: 1_000_000_000,
 } as const;
 
-// Paging defaults shared by every listing feed — the employer's own and the
-// public one — so the two never drift into answering the same question with
-// different page sizes.
-export const JobListPaging = {
-  DEFAULT_LIMIT: 20,
-  MAX_LIMIT: 100,
-} as const;
+// Paging now lives in `common/constants/paging.ts`, shared with the
+// applications feed — see ListPaging.
 
 // Bounds on what a visitor may type when browsing.
 //

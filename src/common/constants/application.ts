@@ -7,13 +7,3 @@ export const ApplicationLimit = {
   // bound only needs to be generous enough for any key storage produces.
   RESUME_URL_MAX_LENGTH: 1024,
 } as const;
-
-// Paging for the seeker's own application feed.
-//
-// Kept separate from JobListPaging rather than shared with it: the two feeds
-// answer different questions, and one changing its page size should not
-// silently move the other.
-export const ApplicationListPaging = {
-  DEFAULT_LIMIT: 20,
-  MAX_LIMIT: 100,
-} as const;

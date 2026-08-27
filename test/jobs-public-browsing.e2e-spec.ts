@@ -5,8 +5,8 @@ import {
   A_JOB,
   JOBS_URL,
   JobListBody,
-  JobTestHarness,
-} from './helpers/jobs.helper';
+  ApiTestHarness,
+} from './helpers/api.helper';
 
 // Implementation lives in test/__mocks__/jwks-rsa.ts.
 jest.mock('jwks-rsa');
@@ -14,7 +14,7 @@ jest.mock('jwks-rsa');
 const UNKNOWN_ID = '6f9619ff-8b86-d011-b42d-00c04fc964ff';
 
 describe('Public job browsing (e2e)', () => {
-  const harness = new JobTestHarness();
+  const harness = new ApiTestHarness();
 
   beforeAll(async () => {
     await harness.start();

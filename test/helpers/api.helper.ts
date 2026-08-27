@@ -54,16 +54,16 @@ export interface JobSeekerProfileBody {
 }
 
 /**
- * The job suites' shared seam: a real Nest application over the real test
- * database, with tokens minted locally. Every job spec boots the same way, so
- * the bootstrap and the "act as this employer" shorthands live here rather
- * than being copied into each one.
+ * The e2e suites' shared seam: a real Nest application over the real test
+ * database, with tokens minted locally. Every spec boots the same way, so the
+ * bootstrap and the "act as this employer / this job seeker" shorthands live
+ * here rather than being copied into each one.
  *
  * Storage is the one collaborator that is faked, because it is the one that
  * would otherwise leave the machine. Everything else — guards, the validation
  * pipe, the services, TypeORM — is the real thing behind a real request.
  */
-export class JobTestHarness {
+export class ApiTestHarness {
   private app!: INestApplication;
   private dataSource!: DataSource;
   private storageService!: InMemoryStorageService;
@@ -173,10 +173,10 @@ export class JobTestHarness {
   async becomeJobSeekerWithResume(
     sub: string,
     name = 'Ada Lovelace',
-  ): Promise<{ profile: JobSeekerProfileBody; resumePath: string }> {
+  ): Promise<{ profile: JobSeekerProfileBody; resumeUrl: string }> {
     const profile = await this.becomeJobSeeker(sub, name);
-    const resumePath = await this.uploadResume(sub);
-    return { profile, resumePath };
+    const resumeUrl = await this.uploadResume(sub);
+    return { profile, resumeUrl };
   }
 
   async createJob(

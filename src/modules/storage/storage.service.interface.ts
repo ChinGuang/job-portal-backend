@@ -16,5 +16,15 @@ export interface StorageService {
 
   createSignedUrl(path: string, expiresInSeconds: number): Promise<string>;
 
+  /**
+   * Whether an object is actually stored at `path`.
+   *
+   * Needed because a stored key travels as a plain string — an application
+   * snapshots one, and an employer later exchanges it for a signed URL. Any
+   * path a client hands us therefore has to be checked against what is really
+   * in the bucket, or a request could name a file that was never uploaded.
+   */
+  exists(path: string): Promise<boolean>;
+
   delete(path: string): Promise<void>;
 }

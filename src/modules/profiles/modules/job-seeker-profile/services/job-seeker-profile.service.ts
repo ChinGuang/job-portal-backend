@@ -11,6 +11,7 @@ import { TypeormErrorCode } from '../../../../../common/constants/database';
 import type { StorageService } from '../../../../storage/storage.service.interface';
 import { STORAGE_SERVICE } from '../../../../storage/storage.tokens';
 import { JobSeekerProfile } from '../../../entities/profile.entity';
+import { buildResumeKey } from '../domain/resume-key';
 import { CreateJobSeekerProfileDto } from '../dto/create-job-seeker-profile.dto';
 import { UpdateJobSeekerProfileDto } from '../dto/update-job-seeker-profile.dto';
 
@@ -100,7 +101,7 @@ export class JobSeekerProfileService {
     const profile = await this.findByUserId(userId);
 
     const extension = RESUME_EXTENSION_BY_MIME_TYPE[file.mimetype] ?? 'bin';
-    const path = `${profile.id}/resume.${extension}`;
+    const path = buildResumeKey(profile.id, extension);
     const previousPath = profile.resumeUrl;
 
     // Upload the new object and commit the DB row before touching the old

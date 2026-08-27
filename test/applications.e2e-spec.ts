@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 import request from 'supertest';
-import { JobTestHarness } from './helpers/jobs.helper';
+import { ApiTestHarness } from './helpers/api.helper';
 
 // Implementation lives in test/__mocks__/jwks-rsa.ts.
 jest.mock('jwks-rsa');
@@ -25,7 +25,7 @@ interface ApplicationBody {
 }
 
 describe('Applying to a job (e2e)', () => {
-  const harness = new JobTestHarness();
+  const harness = new ApiTestHarness();
 
   beforeAll(async () => {
     await harness.start();
@@ -50,9 +50,9 @@ describe('Applying to a job (e2e)', () => {
   ) {
     await harness.becomeEmployer(employer);
     const job = await harness.publishJob(employer);
-    const { profile, resumePath } =
+    const { profile, resumeUrl } =
       await harness.becomeJobSeekerWithResume(seeker);
-    return { job, profile, resumePath };
+    return { job, profile, resumeUrl };
   }
 
   function apply(seeker: string, jobId: string, body: object = {}) {
@@ -88,17 +88,35 @@ describe('Applying to a job (e2e)', () => {
       expect((res.body as ApplicationBody).coverLetter).toBeNull();
     });
 
+    it('treats a blank cover letter as an absent one rather than a 400', async () => {
+      const { job } = await arrangePublishedJobAndSeeker();
+
+      const res = await apply('seeker', job.id, {
+        coverLetter: '   ',
+      }).expect(201);
+
+      expect((res.body as ApplicationBody).coverLetter).toBeNull();
+    });
+
     it("snapshots the profile's résumé when the request names none", async () => {
-      const { job, resumePath } = await arrangePublishedJobAndSeeker();
+      const { job, resumeUrl } = await arrangePublishedJobAndSeeker();
 
       const res = await apply('seeker', job.id).expect(201);
 
-      expect((res.body as ApplicationBody).resumeUrl).toBe(resumePath);
+      expect((res.body as ApplicationBody).resumeUrl).toBe(resumeUrl);
     });
 
     it('prefers a résumé named on the request over the profile one', async () => {
-      const { job, profile, resumePath } = await arrangePublishedJobAndSeeker();
+      const { job, profile, resumeUrl } = await arrangePublishedJobAndSeeker();
+      // A second résumé really in the bucket under this seeker's own prefix —
+      // the tailored-CV case. There is no per-application upload endpoint yet,
+      // so it is put there directly rather than through one.
       const tailored = `${profile.id}/tailored-resume.pdf`;
+      await harness.storage.upload(
+        tailored,
+        Buffer.from('%PDF-1.4 tailored'),
+        'application/pdf',
+      );
 
       const res = await apply('seeker', job.id, {
         resumeUrl: tailored,
@@ -106,17 +124,47 @@ describe('Applying to a job (e2e)', () => {
 
       const body = res.body as ApplicationBody;
       expect(body.resumeUrl).toBe(tailored);
-      expect(body.resumeUrl).not.toBe(resumePath);
+      expect(body.resumeUrl).not.toBe(resumeUrl);
+    });
+
+    it('refuses a résumé key of its own that was never uploaded', async () => {
+      const { job, profile } = await arrangePublishedJobAndSeeker();
+
+      // Own-prefixed, so the ownership rule passes — but nothing is stored
+      // there. Accepting it would hand the employer a key resolving to
+      // nothing, and would let a seeker with no résumé at all apply by
+      // inventing one.
+      const res = await apply('seeker', job.id, {
+        resumeUrl: `${profile.id}/never-uploaded.pdf`,
+      }).expect(400);
+
+      expect(res.body.message).toMatch(/has not been uploaded/i);
+    });
+
+    it('cannot dodge the no-résumé refusal by inventing a key', async () => {
+      await harness.becomeEmployer('employer');
+      const job = await harness.publishJob('employer');
+      const profile = await harness.becomeJobSeeker('resumeless');
+
+      await apply('resumeless', job.id, {
+        resumeUrl: `${profile.id}/resume.pdf`,
+      }).expect(400);
+
+      const rows = await harness.query<{ count: string }>(
+        'SELECT COUNT(*) AS count FROM applications',
+        [],
+      );
+      expect(rows[0].count).toBe('0');
     });
 
     it('copies no file: the snapshot is only a reference to the stored one', async () => {
-      const { job, resumePath } = await arrangePublishedJobAndSeeker();
+      const { job, resumeUrl } = await arrangePublishedJobAndSeeker();
 
       await apply('seeker', job.id).expect(201);
 
       // Applying uploaded nothing; it recorded the key of the object the
       // résumé upload had already put there.
-      expect(harness.storage.has(resumePath)).toBe(true);
+      expect(harness.storage.has(resumeUrl)).toBe(true);
     });
 
     it("refuses a résumé belonging to another seeker's profile", async () => {

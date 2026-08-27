@@ -1,7 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { Application } from '../entities/application.entity';
-import { ApplicationDetailResponseDto } from './application-detail-response.dto';
-import { ApplicationResponseDto } from './application-response.dto';
+import { ApplicationDetailResponseDto } from '../dto/application-detail-response.dto';
+import { ApplicationResponseDto } from '../dto/application-response.dto';
 
 /**
  * Entity to wire shape, in one place because both controllers answer with the

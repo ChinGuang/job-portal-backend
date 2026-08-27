@@ -1,14 +1,22 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { TypeormErrorCode } from '../../../common/constants/database';
-import { Job, JobStatus } from '../../jobs/entities/job.entity';
+import {
+  acceptsApplications,
+  isPubliclyVisible,
+} from '../../jobs/domain/job-status';
+import { Job } from '../../jobs/entities/job.entity';
 import { JobSeekerProfile } from '../../profiles/entities/profile.entity';
+import { isOwnResumeKey } from '../../profiles/modules/job-seeker-profile/domain/resume-key';
+import type { StorageService } from '../../storage/storage.service.interface';
+import { STORAGE_SERVICE } from '../../storage/storage.tokens';
 import { CreateApplicationDto } from '../dto/create-application.dto';
 import { ListMyApplicationsQueryDto } from '../dto/list-my-applications-query.dto';
 import { Application, ApplicationStatus } from '../entities/application.entity';
@@ -22,18 +30,9 @@ const NO_RESUME =
 const FOREIGN_RESUME =
   '`resumeUrl` must be a résumé belonging to your own job seeker profile.';
 
-/**
- * Whether a résumé key belongs to the profile applying with it.
- *
- * Résumés live under a per-profile prefix in a private bucket, and the key is
- * stored as a snapshot that an employer later exchanges for a signed URL. Left
- * unchecked, `resumeUrl` would therefore be a way to attach *someone else's*
- * private file to your own application, so a supplied key has to be one of the
- * caller's own.
- */
-function isOwnResume(resumeUrl: string, profile: JobSeekerProfile): boolean {
-  return resumeUrl.startsWith(`${profile.id}/`);
-}
+const MISSING_RESUME =
+  'The résumé named by `resumeUrl` has not been uploaded. Upload it at ' +
+  'POST /profiles/job-seeker/resume before applying with it.';
 
 @Injectable()
 export class ApplicationRepoService {
@@ -42,6 +41,8 @@ export class ApplicationRepoService {
     private readonly applicationRepository: Repository<Application>,
     @InjectRepository(Job)
     private readonly jobRepository: Repository<Job>,
+    @Inject(STORAGE_SERVICE)
+    private readonly storageService: StorageService,
   ) {}
 
   /**
@@ -56,14 +57,10 @@ export class ApplicationRepoService {
    */
   private async findApplicableJob(jobId: string): Promise<Job> {
     const job = await this.jobRepository.findOne({ where: { id: jobId } });
-    if (
-      !job ||
-      job.status === JobStatus.DRAFT ||
-      job.status === JobStatus.ARCHIVED
-    ) {
+    if (!job || !isPubliclyVisible(job.status)) {
       throw new NotFoundException('Job listing not found.');
     }
-    if (job.status !== JobStatus.PUBLISHED) {
+    if (!acceptsApplications(job.status)) {
       throw new ConflictException(
         'This job listing is no longer accepting applications.',
       );
@@ -79,20 +76,29 @@ export class ApplicationRepoService {
    * résumé on either is refused rather than allowed through empty — an
    * application an employer cannot read is not an application.
    */
-  private resolveResumeUrl(
+  private async resolveResumeUrl(
     profile: JobSeekerProfile,
     supplied: string | undefined,
-  ): string {
-    if (supplied) {
-      if (!isOwnResume(supplied, profile)) {
-        throw new BadRequestException(FOREIGN_RESUME);
+  ): Promise<string> {
+    if (!supplied) {
+      if (!profile.resumeUrl) {
+        throw new BadRequestException(NO_RESUME);
       }
-      return supplied;
+      return profile.resumeUrl;
     }
-    if (!profile.resumeUrl) {
-      throw new BadRequestException(NO_RESUME);
+
+    // Two separate questions, because a key is just a string a client typed.
+    // Ownership stops one seeker naming another's private object; existence
+    // stops anyone naming a file that was never uploaded — which would
+    // otherwise wave the "no résumé" refusal through and leave the employer
+    // holding a key that resolves to nothing.
+    if (!isOwnResumeKey(supplied, profile.id)) {
+      throw new BadRequestException(FOREIGN_RESUME);
     }
-    return profile.resumeUrl;
+    if (!(await this.storageService.exists(supplied))) {
+      throw new BadRequestException(MISSING_RESUME);
+    }
+    return supplied;
   }
 
   async create(
@@ -101,12 +107,15 @@ export class ApplicationRepoService {
     dto: CreateApplicationDto,
   ): Promise<Application> {
     await this.findApplicableJob(jobId);
-    const resumeUrl = this.resolveResumeUrl(profile, dto.resumeUrl);
+    const resumeUrl = await this.resolveResumeUrl(profile, dto.resumeUrl);
 
     const application = this.applicationRepository.create({
       jobId,
       jobSeekerProfileId: profile.id,
-      coverLetter: dto.coverLetter ?? null,
+      // A blank cover letter is an absent one: the field is optional, so
+      // storing "" would be recording that the seeker wrote nothing as though
+      // they had written something.
+      coverLetter: dto.coverLetter?.trim() || null,
       resumeUrl,
       status: ApplicationStatus.SUBMITTED,
     });

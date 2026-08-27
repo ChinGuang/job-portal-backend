@@ -12,7 +12,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentJobSeekerProfile } from '../profiles/decorators/current-job-seeker-profile.decorator';
 import { JobSeekerProfileGuard } from '../profiles/guards/job-seeker-profile.guard';
 import { JobSeekerProfile } from '../profiles/entities/profile.entity';
-import { toApplicationDto } from './dto/application-mapper';
+import { toApplicationDto } from './mappers/application.mapper';
 import { ApplicationResponseDto } from './dto/application-response.dto';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { ApplicationRepoService } from './services/application-repo.service';

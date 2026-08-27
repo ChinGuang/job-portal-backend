@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Job } from '../jobs/entities/job.entity';
 import { JobSeekerProfileModule } from '../profiles/modules/job-seeker-profile/job-seeker-profile.module';
+import { StorageModule } from '../storage/storage.module';
 import { ApplicationController } from './application.controller';
 import { Application } from './entities/application.entity';
 import { JobApplicationController } from './job-application.controller';
@@ -17,6 +18,9 @@ import { ApplicationRepoService } from './services/application-repo.service';
   imports: [
     TypeOrmModule.forFeature([Application, Job]),
     JobSeekerProfileModule,
+    // Applying never uploads, but it does have to confirm that a résumé key a
+    // client named is really in the bucket.
+    StorageModule,
   ],
   providers: [ApplicationRepoService],
   controllers: [JobApplicationController, ApplicationController],
