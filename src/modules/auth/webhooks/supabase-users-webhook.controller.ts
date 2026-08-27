@@ -12,6 +12,7 @@ import {
   WEBHOOK_SECRET_HEADER,
   WebhookSecretGuard,
 } from '../../../common/guards/webhook-secret.guard';
+import { EmployerProfileRepoService } from '../../profiles/modules/employee-profile/employer-profile-repo.service';
 import { UserRepoService } from '../../users/services/user-repo.service';
 import {
   MIRRORED_TABLE,
@@ -22,7 +23,10 @@ import {
 @ApiTags(SwaggerTag.WEBHOOKS)
 @Controller('webhooks/supabase')
 export class SupabaseUsersWebhookController {
-  constructor(private readonly userRepoService: UserRepoService) {}
+  constructor(
+    private readonly userRepoService: UserRepoService,
+    private readonly employerProfileRepoService: EmployerProfileRepoService,
+  ) {}
   private readonly logger = new Logger(SupabaseUsersWebhookController.name);
   @Post('users')
   @UseGuards(WebhookSecretGuard)
@@ -66,7 +70,13 @@ export class SupabaseUsersWebhookController {
         const supabaseId = payload.old_record?.id;
 
         if (typeof supabaseId === 'string') {
-          await this.userRepoService.softDeleteBySupabaseId(supabaseId);
+          const user =
+            await this.userRepoService.softDeleteBySupabaseId(supabaseId);
+          // Soft-removing the profile cascades the deleted employer's
+          // listings to ARCHIVED via the profile subscriber.
+          if (user) {
+            await this.employerProfileRepoService.softDeleteByUserId(user.id);
+          }
         }
         break;
       }

@@ -70,4 +70,17 @@ export class EmployerProfileRepoService {
     Object.assign(profile, dto);
     return this.employerProfileRepository.save(profile);
   }
+
+  /**
+   * Soft-removes the user's employer profile, if they have one. This goes
+   * through `softRemove` (not the bulk `softDelete`) on purpose: only the
+   * entity path fires the subscriber that cascades the deleted employer's
+   * listings to ARCHIVED. Absence is a no-op — a user may have no profile.
+   */
+  async softDeleteByUserId(userId: string): Promise<void> {
+    const profile = await this.findByUserId(userId);
+    if (profile) {
+      await this.employerProfileRepository.softRemove(profile);
+    }
+  }
 }
