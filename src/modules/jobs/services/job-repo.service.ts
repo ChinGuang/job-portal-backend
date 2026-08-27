@@ -162,19 +162,19 @@ export class JobRepoService {
    * the DTO turns a blank filter into `undefined` before it gets here.
    */
   private applyBrowseFilters(
-    query: SelectQueryBuilder<Job>,
+    builder: SelectQueryBuilder<Job>,
     { jobType, location, keyword }: BrowseJobsQueryDto,
   ): void {
     if (jobType) {
-      query.andWhere('job.jobType = :jobType', { jobType });
+      builder.andWhere('job.jobType = :jobType', { jobType });
     }
     if (location) {
-      query.andWhere('job.location ILIKE :location', {
+      builder.andWhere('job.location ILIKE :location', {
         location: containsPattern(location),
       });
     }
     if (keyword) {
-      query.andWhere(
+      builder.andWhere(
         '(job.title ILIKE :keyword OR job.description ILIKE :keyword)',
         { keyword: containsPattern(keyword) },
       );
@@ -193,6 +193,7 @@ export class JobRepoService {
   async findPublished(
     query: BrowseJobsQueryDto,
   ): Promise<{ items: Job[]; total: number }> {
+    const { limit, offset } = query;
     const builder = this.jobRepository
       .createQueryBuilder('job')
       .where('job.status = :status', { status: JobStatus.PUBLISHED });
@@ -203,8 +204,8 @@ export class JobRepoService {
     const [items, total] = await builder
       .orderBy('job.createdAt', 'DESC')
       .addOrderBy('job.id', 'DESC')
-      .take(query.limit)
-      .skip(query.offset)
+      .take(limit)
+      .skip(offset)
       .getManyAndCount();
     return { items, total };
   }

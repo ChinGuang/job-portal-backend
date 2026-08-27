@@ -246,6 +246,26 @@ describe('Public job browsing (e2e)', () => {
       expect(res.body).toEqual({ items: [], total: 0 });
     });
 
+    it('ignores the spaces a visitor typed around a location', async () => {
+      await harness.becomeEmployer('loc-4');
+      const kl = await harness.publishJob('loc-4', {
+        location: 'Kuala Lumpur',
+      });
+
+      const res = await browse({ location: '  Kuala Lumpur  ' }).expect(200);
+
+      expect(idsOf(res.body as JobListBody)).toEqual([kl.id]);
+    });
+
+    it('reads a blank location as no filter at all', async () => {
+      await harness.becomeEmployer('loc-5');
+      const job = await harness.publishJob('loc-5');
+
+      const res = await browse({ location: '   ' }).expect(200);
+
+      expect(idsOf(res.body as JobListBody)).toEqual([job.id]);
+    });
+
     it('rejects an unknown job type with 400', async () => {
       await browse({ jobType: 'PERMANENT_VACATION' }).expect(400);
     });
@@ -336,6 +356,52 @@ describe('Public job browsing (e2e)', () => {
       const res = await browse({ keyword: 'rust' }).expect(200);
 
       expect(res.body).toEqual({ items: [], total: 0 });
+    });
+
+    it('treats a single-character LIKE wildcard as an ordinary character', async () => {
+      // "_" matches any one character to LIKE, so an unescaped "a_b" would
+      // find "axb". Only a listing literally containing "a_b" should match.
+      await harness.becomeEmployer('kw-8');
+      const literal = await harness.publishJob('kw-8', { title: 'Role a_b' });
+      await harness.publishJob('kw-8', { title: 'Role axb' });
+
+      const res = await browse({ keyword: 'a_b' }).expect(200);
+
+      expect(idsOf(res.body as JobListBody)).toEqual([literal.id]);
+    });
+
+    it('ignores the spaces a visitor typed around a keyword', async () => {
+      await harness.becomeEmployer('kw-9');
+      const rust = await harness.publishJob('kw-9', { title: 'Rust Engineer' });
+
+      const res = await browse({ keyword: '  rust  ' }).expect(200);
+
+      expect(idsOf(res.body as JobListBody)).toEqual([rust.id]);
+    });
+
+    it('reads a blank keyword as no keyword at all', async () => {
+      // An empty search box must not narrow the board to nothing.
+      await harness.becomeEmployer('kw-10');
+      const job = await harness.publishJob('kw-10');
+
+      const res = await browse({ keyword: '   ' }).expect(200);
+
+      expect(idsOf(res.body as JobListBody)).toEqual([job.id]);
+    });
+
+    it('accepts a keyword as long as the longest storable description', async () => {
+      // The bound follows the longest searched field, so a phrase a
+      // description could genuinely contain is searched, not refused.
+      await harness.becomeEmployer('kw-11');
+      await harness.publishJob('kw-11');
+
+      const res = await browse({ keyword: 'x'.repeat(10000) }).expect(200);
+
+      expect(res.body).toEqual({ items: [], total: 0 });
+    });
+
+    it('rejects a keyword longer than anything that could be stored', async () => {
+      await browse({ keyword: 'x'.repeat(10001) }).expect(400);
     });
   });
 

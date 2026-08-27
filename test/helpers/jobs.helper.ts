@@ -118,7 +118,7 @@ export class JobTestHarness {
   }
 
   /** Moves one of `sub`'s listings to `status`, as the employer would. */
-  setJobStatus(sub: string, id: string, status: string) {
+  setJobStatus(sub: string, id: string, status: string): request.Test {
     return request(this.server)
       .patch(`${JOBS_URL}/${id}/status`)
       .set('Authorization', this.authHeader(sub))

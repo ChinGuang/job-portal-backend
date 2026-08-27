@@ -53,8 +53,3 @@ export const PUBLICLY_VISIBLE_STATUSES: readonly JobStatus[] = [
   JobStatus.PUBLISHED,
   JobStatus.CLOSED,
 ];
-
-/** Whether a visitor with no token may read a listing in this status. */
-export function isPubliclyVisible(status: JobStatus): boolean {
-  return PUBLICLY_VISIBLE_STATUSES.includes(status);
-}

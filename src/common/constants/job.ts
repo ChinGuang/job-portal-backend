@@ -25,9 +25,13 @@ export const JobListPaging = {
   MAX_LIMIT: 100,
 } as const;
 
-// Bounds on what a visitor may type when browsing. A keyword is matched
-// against stored text, so anything longer than the longest storable title is
-// a query that could never match rather than a search worth running.
+// Bounds on what a visitor may type when browsing.
+//
+// A keyword is matched against the title *and* the description, so the bound
+// follows the longer of the two surfaces: anything past it could not be a
+// substring of either field, which makes it a query that cannot match rather
+// than a search worth running. Taking the title's bound instead would 400 a
+// long phrase that a description genuinely contains.
 export const JobBrowseLimit = {
-  KEYWORD_MAX_LENGTH: JobLimit.TITLE_MAX_LENGTH,
+  KEYWORD_MAX_LENGTH: JobLimit.DESCRIPTION_MAX_LENGTH,
 } as const;
