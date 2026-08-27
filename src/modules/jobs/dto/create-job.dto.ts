@@ -12,23 +12,20 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { JobLimit } from '../../../common/constants/job';
 import { JobType } from '../entities/job.entity';
-
-// Kept generous rather than precise: the range only exists so a candidate can
-// self-select, and the API has no opinion on a currency's magnitude.
-const MAX_SALARY = 1_000_000_000;
 
 export class CreateJobDto {
   @ApiProperty({ example: 'Senior Backend Engineer' })
   @IsString()
   @MinLength(1)
-  @MaxLength(255)
+  @MaxLength(JobLimit.TITLE_MAX_LENGTH)
   title!: string;
 
   @ApiProperty({ example: 'Own the API that powers the portal.' })
   @IsString()
   @MinLength(1)
-  @MaxLength(10000)
+  @MaxLength(JobLimit.DESCRIPTION_MAX_LENGTH)
   description!: string;
 
   @ApiProperty({
@@ -37,15 +34,15 @@ export class CreateJobDto {
     description: 'Required, but may be empty.',
   })
   @IsArray()
-  @ArrayMaxSize(50)
+  @ArrayMaxSize(JobLimit.REQUIREMENTS_MAX_COUNT)
   @IsString({ each: true })
-  @MaxLength(500, { each: true })
+  @MaxLength(JobLimit.REQUIREMENT_MAX_LENGTH, { each: true })
   requirements!: string[];
 
   @ApiProperty({ example: 'Kuala Lumpur' })
   @IsString()
   @MinLength(1)
-  @MaxLength(255)
+  @MaxLength(JobLimit.LOCATION_MAX_LENGTH)
   location!: string;
 
   @ApiProperty({ enum: JobType, example: JobType.FULL_TIME })
@@ -56,19 +53,19 @@ export class CreateJobDto {
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(MAX_SALARY)
+  @Max(JobLimit.MAX_SALARY)
   salaryMin?: number;
 
   @ApiPropertyOptional({ example: 12000 })
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(MAX_SALARY)
+  @Max(JobLimit.MAX_SALARY)
   salaryMax?: number;
 
   @ApiPropertyOptional({ example: 'MYR', description: 'ISO 4217 code.' })
   @IsOptional()
   @IsString()
-  @Length(3, 3)
+  @Length(JobLimit.CURRENCY_CODE_LENGTH, JobLimit.CURRENCY_CODE_LENGTH)
   currency?: string;
 }
