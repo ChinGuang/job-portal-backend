@@ -37,11 +37,16 @@ export class InMemoryStorageService implements StorageService {
     );
   }
 
+  exists(path: string): Promise<boolean> {
+    return Promise.resolve(this.objects.has(path));
+  }
+
   delete(path: string): Promise<void> {
     this.objects.delete(path);
     return Promise.resolve();
   }
 
+  /** Synchronous twin of `exists`, for assertions inside tests. */
   has(path: string): boolean {
     return this.objects.has(path);
   }

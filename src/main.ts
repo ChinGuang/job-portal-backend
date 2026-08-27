@@ -12,6 +12,7 @@ async function bootstrap() {
     .addTag(SwaggerTag.WEBHOOKS)
     .addTag(SwaggerTag.PROFILES)
     .addTag(SwaggerTag.JOBS)
+    .addTag(SwaggerTag.APPLICATIONS)
     .setVersion('1.0')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);

@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { EnvKey } from './common/constants/config';
 import { AllExceptionsFilter } from './common/exception-filters/http-exception.filter';
 import { dataSourceOptions } from './data-source';
+import { ApplicationModule } from './modules/applications/application.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JobModule } from './modules/jobs/job.module';
 import { ProfileModule } from './modules/profiles/profile.module';
@@ -36,6 +37,7 @@ import { ProfileModule } from './modules/profiles/profile.module';
     AuthModule,
     ProfileModule,
     JobModule,
+    ApplicationModule,
   ],
   controllers: [AppController],
   providers: [

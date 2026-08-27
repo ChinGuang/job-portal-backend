@@ -16,5 +16,8 @@ export interface StorageService {
 
   createSignedUrl(path: string, expiresInSeconds: number): Promise<string>;
 
+  /** Whether an object is really stored at `path`, for keys a client sends. */
+  exists(path: string): Promise<boolean>;
+
   delete(path: string): Promise<void>;
 }

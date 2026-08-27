@@ -68,6 +68,26 @@ export class SupabaseStorageService implements StorageService {
     return data.signedUrl;
   }
 
+  // Listed rather than signed: unlike createSignedUrl, `list` distinguishes
+  // "no such object" from a real failure.
+  async exists(path: string): Promise<boolean> {
+    const separator = path.lastIndexOf('/');
+    const directory = separator === -1 ? '' : path.slice(0, separator);
+    const name = path.slice(separator + 1);
+
+    const { data, error } = await this.client.storage
+      .from(this.bucket)
+      .list(directory, { search: name });
+
+    if (error) {
+      throw new InternalServerErrorException(
+        `Failed to look up storage object: ${error.message}`,
+      );
+    }
+    // `search` is a prefix match, so the exact name still has to be confirmed.
+    return (data ?? []).some((object) => object.name === name);
+  }
+
   async delete(path: string): Promise<void> {
     const { error } = await this.client.storage
       .from(this.bucket)

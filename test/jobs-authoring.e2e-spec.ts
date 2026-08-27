@@ -5,15 +5,15 @@ import {
   A_JOB,
   JOBS_URL,
   JobListBody,
-  JobTestHarness,
+  ApiTestHarness,
   MINE_URL,
-} from './helpers/jobs.helper';
+} from './helpers/api.helper';
 
 // Implementation lives in test/__mocks__/jwks-rsa.ts.
 jest.mock('jwks-rsa');
 
 describe('Job listing authoring (e2e)', () => {
-  const harness = new JobTestHarness();
+  const harness = new ApiTestHarness();
 
   beforeAll(async () => {
     await harness.start();

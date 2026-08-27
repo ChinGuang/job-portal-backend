@@ -3,4 +3,5 @@ export enum SwaggerTag {
   WEBHOOKS = 'Webhooks',
   PROFILES = 'Profiles',
   JOBS = 'Jobs',
+  APPLICATIONS = 'Applications',
 }
