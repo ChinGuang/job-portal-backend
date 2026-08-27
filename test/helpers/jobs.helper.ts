@@ -4,11 +4,16 @@ import { Server } from 'http';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { InMemoryStorageService } from '../../src/modules/storage/services/in-memory-storage.service';
+import { STORAGE_SERVICE } from '../../src/modules/storage/storage.tokens';
 import { TestAuthSeam } from './auth.helper';
+import { PDF_BUFFER } from './resume-fixtures';
 
 export const JOBS_URL = '/jobs';
 export const MINE_URL = '/jobs/mine';
 export const EMPLOYER_PROFILE_URL = '/profiles/employer';
+export const JOB_SEEKER_PROFILE_URL = '/profiles/job-seeker';
+export const JOB_SEEKER_RESUME_URL = '/profiles/job-seeker/resume';
 
 /** A well-formed listing body, for tests that only care about one field. */
 export const A_JOB = {
@@ -42,15 +47,26 @@ export interface EmployerProfileBody {
   companyName: string;
 }
 
+export interface JobSeekerProfileBody {
+  id: string;
+  name: string;
+  resumeUrl: string | null;
+}
+
 /**
  * The job suites' shared seam: a real Nest application over the real test
  * database, with tokens minted locally. Every job spec boots the same way, so
  * the bootstrap and the "act as this employer" shorthands live here rather
  * than being copied into each one.
+ *
+ * Storage is the one collaborator that is faked, because it is the one that
+ * would otherwise leave the machine. Everything else — guards, the validation
+ * pipe, the services, TypeORM — is the real thing behind a real request.
  */
 export class JobTestHarness {
   private app!: INestApplication;
   private dataSource!: DataSource;
+  private storageService!: InMemoryStorageService;
   private readonly authSeam = new TestAuthSeam();
 
   /** Boots the application. Call from `beforeAll`. */
@@ -61,11 +77,21 @@ export class JobTestHarness {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(STORAGE_SERVICE)
+      .useClass(InMemoryStorageService)
+      .compile();
 
     this.app = moduleFixture.createNestApplication();
     await this.app.init();
     this.dataSource = moduleFixture.get<DataSource>(DataSource);
+    this.storageService =
+      moduleFixture.get<InMemoryStorageService>(STORAGE_SERVICE);
+  }
+
+  /** The storage fake, for asserting on what was (or was not) uploaded. */
+  get storage(): InMemoryStorageService {
+    return this.storageService;
   }
 
   /** Empties the database between tests. Call from `afterEach`. */
@@ -103,6 +129,54 @@ export class JobTestHarness {
       .send({ companyName, ...overrides })
       .expect(201);
     return res.body as EmployerProfileBody;
+  }
+
+  /**
+   * Gives `sub` a job seeker profile so the job-seeker-capability guard
+   * passes. The profile starts with no résumé — `uploadResume` adds one — so
+   * that the "applying with no résumé anywhere" case is reachable.
+   */
+  async becomeJobSeeker(
+    sub: string,
+    name = 'Ada Lovelace',
+  ): Promise<JobSeekerProfileBody> {
+    const res = await request(this.server)
+      .post(JOB_SEEKER_PROFILE_URL)
+      .set('Authorization', this.authHeader(sub))
+      .send({ name })
+      .expect(201);
+    return res.body as JobSeekerProfileBody;
+  }
+
+  /**
+   * Puts a résumé on `sub`'s job seeker profile through the real upload
+   * endpoint, and answers with the storage key it was stored under — which is
+   * what an application snapshots, and what the response's signed URL hides.
+   */
+  async uploadResume(sub: string): Promise<string> {
+    await request(this.server)
+      .post(JOB_SEEKER_RESUME_URL)
+      .set('Authorization', this.authHeader(sub))
+      .attach('file', PDF_BUFFER, 'resume.pdf')
+      .expect(201);
+
+    const [row] = await this.query<{ resume_url: string }>(
+      `SELECT p.resume_url FROM job_seeker_profiles p
+         JOIN users u ON u.id = p."userId"
+        WHERE u."supabaseId" = $1`,
+      [sub],
+    );
+    return row.resume_url;
+  }
+
+  /** A job seeker profile with a résumé already on it, in one step. */
+  async becomeJobSeekerWithResume(
+    sub: string,
+    name = 'Ada Lovelace',
+  ): Promise<{ profile: JobSeekerProfileBody; resumePath: string }> {
+    const profile = await this.becomeJobSeeker(sub, name);
+    const resumePath = await this.uploadResume(sub);
+    return { profile, resumePath };
   }
 
   async createJob(

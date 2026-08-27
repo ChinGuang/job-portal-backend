@@ -67,8 +67,17 @@ export class JobSeekerProfileService {
     }
   }
 
+  /**
+   * The plain lookup: absence is an answer, not an error. Capability checks
+   * ask this — "does this user have a job seeker profile at all?" — and turn
+   * a null into their own message.
+   */
+  async findByUserIdOrNull(userId: string): Promise<JobSeekerProfile | null> {
+    return this.repo.findOne({ where: { userId } });
+  }
+
   async findByUserId(userId: string): Promise<JobSeekerProfile> {
-    const profile = await this.repo.findOne({ where: { userId } });
+    const profile = await this.findByUserIdOrNull(userId);
     if (!profile) {
       throw new NotFoundException('Job seeker profile not found.');
     }
