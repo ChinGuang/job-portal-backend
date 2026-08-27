@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -6,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateJobDto } from '../dto/create-job.dto';
+import { ListMyJobsQueryDto } from '../dto/list-my-jobs-query.dto';
 import { UpdateJobDto } from '../dto/update-job.dto';
 import { Job, JobStatus } from '../entities/job.entity';
 
@@ -16,13 +18,27 @@ export class JobRepoService {
     private readonly jobRepository: Repository<Job>,
   ) {}
 
+  /**
+   * A salary range exists so a candidate can self-select, which an inverted
+   * one defeats. Checked on the merged listing rather than in the DTO,
+   * because a PATCH may move one bound against the other's stored value.
+   */
+  private assertSalaryRangeIsCoherent(job: Job): void {
+    const { salaryMin, salaryMax } = job;
+    if (salaryMin != null && salaryMax != null && salaryMin > salaryMax) {
+      throw new BadRequestException(
+        'salaryMin must not be greater than salaryMax.',
+      );
+    }
+  }
+
   async create(employerProfileId: string, dto: CreateJobDto): Promise<Job> {
     const job = this.jobRepository.create({
       ...dto,
-      requirements: dto.requirements ?? [],
       employerProfileId,
       status: JobStatus.DRAFT,
     });
+    this.assertSalaryRangeIsCoherent(job);
     return this.jobRepository.save(job);
   }
 
@@ -51,16 +67,23 @@ export class JobRepoService {
   ): Promise<Job> {
     const job = await this.findOwned(id, employerProfileId);
     Object.assign(job, dto);
+    this.assertSalaryRangeIsCoherent(job);
     return this.jobRepository.save(job);
   }
 
-  /** Every listing the employer owns, in every status, newest first. */
+  /**
+   * One page of the employer's listings, in every status, newest first.
+   * `total` counts every listing they own, not just the page.
+   */
   async findAllByEmployer(
     employerProfileId: string,
+    { limit, offset }: ListMyJobsQueryDto,
   ): Promise<{ items: Job[]; total: number }> {
     const [items, total] = await this.jobRepository.findAndCount({
       where: { employerProfileId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
+      take: limit,
+      skip: offset,
     });
     return { items, total };
   }

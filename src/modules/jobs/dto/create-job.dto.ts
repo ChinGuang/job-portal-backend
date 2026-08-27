@@ -31,16 +31,16 @@ export class CreateJobDto {
   @MaxLength(10000)
   description!: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: [String],
     example: ['TypeScript', '5 years of backend experience'],
+    description: 'Required, but may be empty.',
   })
-  @IsOptional()
   @IsArray()
   @ArrayMaxSize(50)
   @IsString({ each: true })
   @MaxLength(500, { each: true })
-  requirements?: string[];
+  requirements!: string[];
 
   @ApiProperty({ example: 'Kuala Lumpur' })
   @IsString()

@@ -6,17 +6,19 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
 import { SwaggerTag } from '../../common/constants/swagger';
-import { CurrentEmployerProfile } from '../../common/decorators/current-employer-profile.decorator';
-import { EmployerProfileGuard } from '../../common/guards/employer-profile.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentEmployerProfile } from '../profiles/decorators/current-employer-profile.decorator';
+import { EmployerProfileGuard } from '../profiles/guards/employer-profile.guard';
 import { CreateJobDto } from './dto/create-job.dto';
 import { JobListResponseDto } from './dto/job-list-response.dto';
 import { JobResponseDto } from './dto/job-response.dto';
+import { ListMyJobsQueryDto } from './dto/list-my-jobs-query.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { Job } from './entities/job.entity';
 import { JobRepoService } from './services/job-repo.service';
@@ -27,13 +29,16 @@ function toResponseDto(job: Job): JobResponseDto {
   });
 }
 
+// Guards are declared per route rather than on the controller: `GET /jobs` and
+// `GET /jobs/:id` land on this same path and are public, so a controller-wide
+// employer guard would be a trap for whoever adds them.
 @ApiTags(SwaggerTag.JOBS)
 @Controller('jobs')
-@UseGuards(JwtAuthGuard, EmployerProfileGuard)
 export class JobController {
   constructor(private readonly jobRepoService: JobRepoService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, EmployerProfileGuard)
   @ApiOperation({ summary: 'Create a job listing (always as a DRAFT)' })
   @ApiResponse({ status: 201, type: JobResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
@@ -48,6 +53,7 @@ export class JobController {
 
   // Declared before `:id` routes so that "mine" is never read as an id.
   @Get('mine')
+  @UseGuards(JwtAuthGuard, EmployerProfileGuard)
   @ApiOperation({
     summary: "List all of the caller's own listings, in every status",
   })
@@ -56,13 +62,17 @@ export class JobController {
   @ApiResponse({ status: 403, description: 'No employer profile.' })
   async findMine(
     @CurrentEmployerProfile('id') employerProfileId: string,
+    @Query() query: ListMyJobsQueryDto,
   ): Promise<JobListResponseDto> {
-    const { items, total } =
-      await this.jobRepoService.findAllByEmployer(employerProfileId);
+    const { items, total } = await this.jobRepoService.findAllByEmployer(
+      employerProfileId,
+      query,
+    );
     return { items: items.map(toResponseDto), total };
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, EmployerProfileGuard)
   @ApiOperation({ summary: "Edit the content of one of the caller's listings" })
   @ApiResponse({ status: 200, type: JobResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })

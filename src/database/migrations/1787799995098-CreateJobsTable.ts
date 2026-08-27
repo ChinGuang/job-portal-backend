@@ -17,7 +17,7 @@ export class CreateJobsTable1787799995098 implements MigrationInterface {
       `CREATE INDEX "idx_jobs_employer_profile_id" ON "jobs" ("employerProfileId")`,
     );
     await queryRunner.query(
-      `ALTER TABLE "jobs" ADD CONSTRAINT "FK_dcd22c32845c8dcac1093190878" FOREIGN KEY ("employerProfileId") REFERENCES "employer_profiles"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+      `ALTER TABLE "jobs" ADD CONSTRAINT "FK_dcd22c32845c8dcac1093190878" FOREIGN KEY ("employerProfileId") REFERENCES "employer_profiles"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
     );
   }
 

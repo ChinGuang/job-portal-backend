@@ -3,10 +3,11 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { EmployerProfile } from '../../modules/profiles/entities/profile.entity';
-import { EmployerProfileRepoService } from '../../modules/profiles/modules/employee-profile/employer-profile-repo.service';
-import { User } from '../../modules/users/entities/user.entity';
+import { User } from '../../users/entities/user.entity';
+import { EmployerProfile } from '../entities/profile.entity';
+import { EmployerProfileRepoService } from '../modules/employee-profile/employer-profile-repo.service';
 
 const NEEDS_EMPLOYER_PROFILE =
   'You need an employer profile to do this. Create one at POST /profiles/employer.';
@@ -22,9 +23,10 @@ export interface RequestWithEmployerProfile {
  * enforces the capability and hands the resolved profile to the handler,
  * sparing it a second lookup.
  *
- * Runs after JwtAuthGuard and, being a guard, before the validation pipe: a
- * caller with no employer profile is told about the profile rather than about
- * a malformed body.
+ * Being a guard, it answers before the validation pipe: a caller with no
+ * employer profile is told about the profile rather than about a malformed
+ * body. It lives in the profiles module rather than `common/` because the
+ * capability it derives is a fact about a profile.
  */
 @Injectable()
 export class EmployerProfileGuard implements CanActivate {
@@ -37,9 +39,11 @@ export class EmployerProfileGuard implements CanActivate {
       .switchToHttp()
       .getRequest<RequestWithEmployerProfile>();
 
+    // Unreachable behind JwtAuthGuard, but the two failures are different
+    // rules: no principal is a 401, a principal without the profile is a 403.
     const userId = request.user?.id;
     if (!userId) {
-      throw new ForbiddenException(NEEDS_EMPLOYER_PROFILE);
+      throw new UnauthorizedException();
     }
 
     const profile = await this.employerProfileRepoService.findByUserId(userId);

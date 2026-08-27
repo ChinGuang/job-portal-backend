@@ -14,6 +14,24 @@ const JOBS_URL = '/jobs';
 const MINE_URL = '/jobs/mine';
 const EMPLOYER_PROFILE_URL = '/profiles/employer';
 
+interface JobBody {
+  id: string;
+  title: string;
+  description: string;
+  requirements: string[];
+  location: string;
+  jobType: string;
+  status: string;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  currency: string | null;
+}
+
+interface JobListBody {
+  items: JobBody[];
+  total: number;
+}
+
 const A_JOB = {
   title: 'Senior Backend Engineer',
   description: 'Own the API that powers the portal.',
@@ -63,13 +81,13 @@ describe('Job listing authoring (e2e)', () => {
   const createJob = async (
     sub: string,
     overrides: Record<string, unknown> = {},
-  ) => {
+  ): Promise<JobBody> => {
     const res = await request(app.getHttpServer())
       .post(JOBS_URL)
       .set('Authorization', authHeader(sub))
       .send({ ...A_JOB, ...overrides })
       .expect(201);
-    return res.body;
+    return res.body as JobBody;
   };
 
   describe('POST /jobs', () => {
@@ -121,17 +139,26 @@ describe('Job listing authoring (e2e)', () => {
       });
     });
 
-    it('defaults requirements to an empty array when omitted', async () => {
+    it('accepts an empty requirements array', async () => {
       await becomeEmployer('employer-4');
-      const { requirements: _omitted, ...withoutRequirements } = A_JOB;
 
       const res = await request(app.getHttpServer())
         .post(JOBS_URL)
         .set('Authorization', authHeader('employer-4'))
-        .send(withoutRequirements)
+        .send({ ...A_JOB, requirements: [] })
         .expect(201);
 
       expect(res.body.requirements).toEqual([]);
+    });
+
+    it('rejects an inverted salary range with 400', async () => {
+      await becomeEmployer('employer-6');
+
+      await request(app.getHttpServer())
+        .post(JOBS_URL)
+        .set('Authorization', authHeader('employer-6'))
+        .send({ ...A_JOB, salaryMin: 12000, salaryMax: 8000 })
+        .expect(400);
     });
 
     it('tells a user without an employer profile that they need one', async () => {
@@ -167,6 +194,7 @@ describe('Job listing authoring (e2e)', () => {
       ['a missing description', { description: undefined }],
       ['a missing location', { location: undefined }],
       ['a missing jobType', { jobType: undefined }],
+      ['a missing requirements', { requirements: undefined }],
       ['an unknown jobType', { jobType: 'PERMANENT_VACATION' }],
       ['a non-array requirements', { requirements: 'TypeScript' }],
       ['a non-string requirement entry', { requirements: [42] }],
@@ -279,6 +307,22 @@ describe('Job listing authoring (e2e)', () => {
         .expect(400);
     });
 
+    it('refuses an edit that inverts the range against the stored bound', async () => {
+      // The PATCH body carries only one bound, so the rule is only visible if
+      // it is checked against the listing as it will stand after the merge.
+      await becomeEmployer('owner-8');
+      const job = await createJob('owner-8', {
+        salaryMin: 8000,
+        salaryMax: 12000,
+      });
+
+      await request(app.getHttpServer())
+        .patch(`${JOBS_URL}/${job.id}`)
+        .set('Authorization', authHeader('owner-8'))
+        .send({ salaryMin: 20000 })
+        .expect(400);
+    });
+
     it('refuses a status change through the content-edit endpoint', async () => {
       await becomeEmployer('owner-7');
       const job = await createJob('owner-7');
@@ -328,13 +372,9 @@ describe('Job listing authoring (e2e)', () => {
         .set('Authorization', authHeader('lister-1'))
         .expect(200);
 
-      expect(res.body.total).toBe(4);
-      const byId = Object.fromEntries(
-        res.body.items.map((j: { id: string; status: string }) => [
-          j.id,
-          j.status,
-        ]),
-      );
+      const { items, total } = res.body as JobListBody;
+      expect(total).toBe(4);
+      const byId = Object.fromEntries(items.map((j) => [j.id, j.status]));
       expect(byId[draft.id]).toBe('DRAFT');
       expect(byId[published.id]).toBe('PUBLISHED');
       expect(byId[closed.id]).toBe('CLOSED');
@@ -366,6 +406,46 @@ describe('Job listing authoring (e2e)', () => {
         .expect(200);
 
       expect(res.body).toEqual({ items: [], total: 0 });
+    });
+
+    it('pages through the listings, with total counting all of them', async () => {
+      await becomeEmployer('lister-4');
+      for (const n of [1, 2, 3]) {
+        await createJob('lister-4', { title: `Role ${n}` });
+      }
+
+      const first = await request(app.getHttpServer())
+        .get(MINE_URL)
+        .query({ limit: 2, offset: 0 })
+        .set('Authorization', authHeader('lister-4'))
+        .expect(200);
+      expect((first.body as JobListBody).items).toHaveLength(2);
+      expect((first.body as JobListBody).total).toBe(3);
+
+      const second = await request(app.getHttpServer())
+        .get(MINE_URL)
+        .query({ limit: 2, offset: 2 })
+        .set('Authorization', authHeader('lister-4'))
+        .expect(200);
+      expect((second.body as JobListBody).items).toHaveLength(1);
+      expect((second.body as JobListBody).total).toBe(3);
+
+      // The two pages together cover every listing exactly once.
+      const titles = [
+        ...(first.body as JobListBody).items,
+        ...(second.body as JobListBody).items,
+      ].map((j) => j.title);
+      expect(titles.sort()).toEqual(['Role 1', 'Role 2', 'Role 3']);
+    });
+
+    it('rejects a nonsensical limit with 400', async () => {
+      await becomeEmployer('lister-5');
+
+      await request(app.getHttpServer())
+        .get(MINE_URL)
+        .query({ limit: 0 })
+        .set('Authorization', authHeader('lister-5'))
+        .expect(400);
     });
 
     it('refuses a caller without an employer profile with 403', async () => {

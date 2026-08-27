@@ -39,7 +39,11 @@ export class Job {
   @Column({ type: 'uuid', nullable: false })
   employerProfileId!: string;
 
-  @ManyToOne(() => EmployerProfile, { onDelete: 'CASCADE' })
+  // RESTRICT, not CASCADE: deleting a listing is a soft operation that sets
+  // ARCHIVED and never removes the row, so application history survives.
+  // Hard deletion is out of scope, so the destructive path should fail loudly
+  // rather than quietly take listings with it.
+  @ManyToOne(() => EmployerProfile, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'employerProfileId' })
   employerProfile?: EmployerProfile;
 
