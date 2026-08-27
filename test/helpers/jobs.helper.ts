@@ -37,6 +37,11 @@ export interface JobListBody {
   total: number;
 }
 
+export interface EmployerProfileBody {
+  id: string;
+  companyName: string;
+}
+
 /**
  * The job suites' shared seam: a real Nest application over the real test
  * database, with tokens minted locally. Every job spec boots the same way, so
@@ -82,13 +87,22 @@ export class JobTestHarness {
     return `Bearer ${this.authSeam.mintToken(sub)}`;
   }
 
-  /** Gives `sub` an employer profile so the employer-capability guard passes. */
-  async becomeEmployer(sub: string, companyName = 'Acme Inc'): Promise<void> {
-    await request(this.server)
+  /**
+   * Gives `sub` an employer profile so the employer-capability guard passes.
+   * `overrides` fills in the rest of the company's public details for the
+   * suites that read them back.
+   */
+  async becomeEmployer(
+    sub: string,
+    companyName = 'Acme Inc',
+    overrides: Record<string, unknown> = {},
+  ): Promise<EmployerProfileBody> {
+    const res = await request(this.server)
       .post(EMPLOYER_PROFILE_URL)
       .set('Authorization', this.authHeader(sub))
-      .send({ companyName })
+      .send({ companyName, ...overrides })
       .expect(201);
+    return res.body as EmployerProfileBody;
   }
 
   async createJob(
@@ -100,6 +114,24 @@ export class JobTestHarness {
       .set('Authorization', this.authHeader(sub))
       .send({ ...A_JOB, ...overrides })
       .expect(201);
+    return res.body as JobBody;
+  }
+
+  /** Moves one of `sub`'s listings to `status`, as the employer would. */
+  setJobStatus(sub: string, id: string, status: string) {
+    return request(this.server)
+      .patch(`${JOBS_URL}/${id}/status`)
+      .set('Authorization', this.authHeader(sub))
+      .send({ status });
+  }
+
+  /** Creates a listing and walks it to PUBLISHED through the API. */
+  async publishJob(
+    sub: string,
+    overrides: Record<string, unknown> = {},
+  ): Promise<JobBody> {
+    const job = await this.createJob(sub, overrides);
+    const res = await this.setJobStatus(sub, job.id, 'PUBLISHED').expect(200);
     return res.body as JobBody;
   }
 

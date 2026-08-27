@@ -16,10 +16,12 @@ import { SwaggerTag } from '../../common/constants/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentEmployerProfile } from '../profiles/decorators/current-employer-profile.decorator';
 import { EmployerProfileGuard } from '../profiles/guards/employer-profile.guard';
+import { BrowseJobsQueryDto } from './dto/browse-jobs-query.dto';
 import { CreateJobDto } from './dto/create-job.dto';
 import { JobListResponseDto } from './dto/job-list-response.dto';
 import { JobResponseDto } from './dto/job-response.dto';
 import { ListMyJobsQueryDto } from './dto/list-my-jobs-query.dto';
+import { PublicJobDetailResponseDto } from './dto/public-job-detail-response.dto';
 import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { Job } from './entities/job.entity';
@@ -31,6 +33,12 @@ function toResponseDto(job: Job): JobResponseDto {
   });
 }
 
+function toPublicDetailDto(job: Job): PublicJobDetailResponseDto {
+  return plainToInstance(PublicJobDetailResponseDto, job, {
+    excludeExtraneousValues: true,
+  });
+}
+
 // Guards are declared per route rather than on the controller: `GET /jobs` and
 // `GET /jobs/:id` land on this same path and are public, so a controller-wide
 // employer guard would be a trap for whoever adds them.
@@ -38,6 +46,24 @@ function toResponseDto(job: Job): JobResponseDto {
 @Controller('jobs')
 export class JobController {
   constructor(private readonly jobRepoService: JobRepoService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Browse published job listings',
+    description:
+      'Open to anyone, with or without a token. Only `PUBLISHED` listings ' +
+      'appear: a `CLOSED` one stays readable by its own link but is not ' +
+      'offered here, because nobody can apply to it. `jobType`, `location` ' +
+      'and `keyword` narrow the page and all three may be combined.',
+  })
+  @ApiResponse({ status: 200, type: JobListResponseDto })
+  @ApiResponse({ status: 400, description: 'Malformed query parameters.' })
+  async browse(
+    @Query() query: BrowseJobsQueryDto,
+  ): Promise<JobListResponseDto> {
+    const { items, total } = await this.jobRepoService.findPublished(query);
+    return { items: items.map(toResponseDto), total };
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, EmployerProfileGuard)
@@ -71,6 +97,27 @@ export class JobController {
       query,
     );
     return { items: items.map(toResponseDto), total };
+  }
+
+  // Declared after `mine` so that route never falls through to this one, and
+  // before the authenticated `:id` routes purely to keep the public pair
+  // readable together.
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Open one job listing, with the company behind it',
+    description:
+      'Open to anyone. A `CLOSED` listing is returned so that a candidate ' +
+      'following an old link learns the role has ended; a `DRAFT` or ' +
+      '`ARCHIVED` one is a 404, because to a visitor it does not exist.',
+  })
+  @ApiResponse({ status: 200, type: PublicJobDetailResponseDto })
+  @ApiResponse({ status: 400, description: 'Malformed id.' })
+  @ApiResponse({ status: 404, description: 'Job listing not found.' })
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<PublicJobDetailResponseDto> {
+    const job = await this.jobRepoService.findPubliclyVisible(id);
+    return toPublicDetailDto(job);
   }
 
   @Patch(':id')
