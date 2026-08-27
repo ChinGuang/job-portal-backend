@@ -166,7 +166,8 @@ describe('Employer application review (e2e)', () => {
     });
 
     it("leaves out applications sent to the employer's other listings", async () => {
-      const { job } = await arrangeOneApplication();
+      // Leaves one application on the first listing, which must not show up.
+      await arrangeOneApplication();
       const second = await harness.publishJob('employer', { title: 'Two' });
       await harness.applyToJob('seeker', second.id);
 
@@ -174,7 +175,6 @@ describe('Employer application review (e2e)', () => {
 
       expect(res.body.total).toBe(1);
       expect((res.body.items as ReviewBody[])[0].jobId).toBe(second.id);
-      expect(job.id).not.toBe(second.id);
     });
 
     it('filters the page down to one status', async () => {
@@ -339,7 +339,14 @@ describe('Employer application review (e2e)', () => {
     it('refuses a no-op transition rather than silently succeeding', async () => {
       const { application } = await arrangeOneApplication();
 
+      // A no-op means the caller has lost track of where this stands.
       await setStatus('employer', application.id, 'SUBMITTED').expect(409);
+      await moveTo(application.id, 'REVIEWED');
+      await setStatus('employer', application.id, 'REVIEWED').expect(409);
+      await moveTo(application.id, 'REJECTED');
+      await setStatus('employer', application.id, 'REJECTED').expect(409);
+
+      await expect(storedStatus(application.id)).resolves.toBe('REJECTED');
     });
 
     it('treats OFFERED as final', async () => {
@@ -366,6 +373,7 @@ describe('Employer application review (e2e)', () => {
         409,
       );
       await setStatus('employer', application.id, 'REVIEWED').expect(409);
+      await setStatus('employer', application.id, 'SUBMITTED').expect(409);
 
       expect(res.body.message).toMatch(/final/i);
       await expect(storedStatus(application.id)).resolves.toBe('REJECTED');
@@ -392,15 +400,42 @@ describe('Employer application review (e2e)', () => {
       await expect(storedStatus(application.id)).resolves.toBe('SUBMITTED');
     });
 
-    it('stops a seeker who is also an employer from deciding their own application', async () => {
+    it("hides another company's application from a seeker who is also an employer", async () => {
       const { application } = await arrangeOneApplication();
-      // The capability guard alone would let this caller through; what stops
-      // them is that the listing is not theirs.
+      // Holding an employer profile gets this caller past the capability
+      // guard; what stops them here is that the listing is not theirs.
       await harness.becomeEmployer('seeker', 'Seeker Side Project Ltd');
 
       await setStatus('seeker', application.id, 'OFFERED').expect(404);
 
       await expect(storedStatus(application.id)).resolves.toBe('SUBMITTED');
+    });
+
+    it('refuses to let anyone decide the application they submitted themselves', async () => {
+      // One user wearing both hats, applying to their own listing — which the
+      // spec allows. Owning the listing is not enough to decide your own fate.
+      await harness.becomeEmployer('solo', 'Solo Ventures');
+      const job = await harness.publishJob('solo');
+      await harness.becomeJobSeekerWithResume('solo', 'Solo Founder');
+      const application = await harness.applyToJob('solo', job.id);
+
+      const res = await setStatus('solo', application.id, 'REVIEWED').expect(
+        403,
+      );
+
+      expect(res.body.message).toMatch(/your own application/i);
+      await expect(storedStatus(application.id)).resolves.toBe('SUBMITTED');
+    });
+
+    it('still lets that employer decide everyone else’s applications', async () => {
+      await harness.becomeEmployer('solo', 'Solo Ventures');
+      const job = await harness.publishJob('solo');
+      await harness.becomeJobSeekerWithResume('solo', 'Solo Founder');
+      await harness.applyToJob('solo', job.id);
+      await harness.becomeJobSeekerWithResume('other', 'Grace Hopper');
+      const theirs = await harness.applyToJob('other', job.id);
+
+      await setStatus('solo', theirs.id, 'REVIEWED').expect(200);
     });
 
     it('checks the employer capability before validating the body', async () => {

@@ -9,8 +9,6 @@ import { JobRepoService } from './services/job-repo.service';
   imports: [TypeOrmModule.forFeature([Job]), EmployerProfileModule],
   providers: [JobRepoService],
   controllers: [JobController],
-  // Exported for the ownership question — "is this employer's listing?" —
-  // which other modules have to ask before showing anything hanging off it.
   exports: [JobRepoService],
 })
 export class JobModule {}

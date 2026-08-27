@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -36,6 +37,23 @@ const FOREIGN_RESUME =
 const MISSING_RESUME =
   'The résumé named by `resumeUrl` has not been uploaded. Upload it at ' +
   'POST /profiles/job-seeker/resume before applying with it.';
+
+const SELF_DECISION =
+  'You cannot decide your own application, even on your own listing.';
+
+const DECIDED_CONCURRENTLY =
+  'This application was decided by someone else while you were deciding it. ' +
+  'Reload it and look at where it stands now.';
+
+/**
+ * The employer deciding an application: the profile that must own the
+ * listing, and the user behind it, who must not be the applicant. Two ids
+ * that always travel together, so they travel as one thing.
+ */
+export interface DecidingEmployer {
+  employerProfileId: string;
+  userId: string;
+}
 
 @Injectable()
 export class ApplicationRepoService {
@@ -198,7 +216,7 @@ export class ApplicationRepoService {
   ): Promise<Application> {
     const application = await this.applicationRepository.findOne({
       where: { id },
-      relations: { job: true },
+      relations: { job: true, jobSeekerProfile: true },
     });
     if (
       !application ||
@@ -218,10 +236,20 @@ export class ApplicationRepoService {
    */
   async changeStatus(
     id: string,
-    employerProfileId: string,
+    decider: DecidingEmployer,
     status: ApplicationStatus,
   ): Promise<Application> {
-    const application = await this.findOwnedByJobOwner(id, employerProfileId);
+    const application = await this.findOwnedByJobOwner(
+      id,
+      decider.employerProfileId,
+    );
+
+    // Nothing else stops this: a user may hold both profiles, and SPEC lets
+    // one apply to their own listing. Owning the listing is what the rest of
+    // this route checks, and for the applicant that is the wrong question.
+    if (application.jobSeekerProfile?.userId === decider.userId) {
+      throw new ForbiddenException(SELF_DECISION);
+    }
 
     if (!canTransition(application.status, status)) {
       throw new ConflictException(
@@ -231,7 +259,18 @@ export class ApplicationRepoService {
       );
     }
 
-    application.status = status;
-    return this.applicationRepository.save(application);
+    // The status the move was checked against is part of the WHERE clause,
+    // not just of the read above: two people deciding one REVIEWED
+    // application at the same moment would both pass a read-then-check, and
+    // whichever wrote second would quietly bury the other's outcome.
+    const { affected } = await this.applicationRepository.update(
+      { id, status: application.status },
+      { status },
+    );
+    if (!affected) {
+      throw new ConflictException(DECIDED_CONCURRENTLY);
+    }
+
+    return this.findOwnedByJobOwner(id, decider.employerProfileId);
   }
 }

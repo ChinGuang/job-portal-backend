@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SwaggerTag } from '../../common/constants/swagger';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentEmployerProfile } from '../profiles/decorators/current-employer-profile.decorator';
 import { EmployerProfileGuard } from '../profiles/guards/employer-profile.guard';
@@ -36,12 +37,17 @@ export class ApplicationReviewController {
       '`SUBMITTED` → `REVIEWED` → `OFFERED` | `REJECTED`; `OFFERED` and ' +
       '`REJECTED` are final, because both have already been told to the ' +
       "candidate. An application on another company's listing is a 404: " +
-      'confirming it exists would say that someone applied somewhere.',
+      'confirming it exists would say that someone applied somewhere. ' +
+      'Deciding an application you submitted yourself is refused even on ' +
+      'your own listing.',
   })
   @ApiResponse({ status: 200, type: ApplicationResponseDto })
   @ApiResponse({ status: 400, description: 'Malformed id or body.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
-  @ApiResponse({ status: 403, description: 'No employer profile.' })
+  @ApiResponse({
+    status: 403,
+    description: 'No employer profile, or the caller is the applicant.',
+  })
   @ApiResponse({
     status: 404,
     description:
@@ -49,16 +55,19 @@ export class ApplicationReviewController {
   })
   @ApiResponse({
     status: 409,
-    description: 'The application cannot move from where it stands to there.',
+    description:
+      'The application cannot move from where it stands to there, or ' +
+      'someone else decided it first.',
   })
   async changeStatus(
+    @CurrentUser('id') userId: string,
     @CurrentEmployerProfile('id') employerProfileId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateApplicationStatusDto,
   ): Promise<ApplicationResponseDto> {
     const application = await this.applicationRepoService.changeStatus(
       id,
-      employerProfileId,
+      { employerProfileId, userId },
       dto.status,
     );
     return toApplicationDto(application);
