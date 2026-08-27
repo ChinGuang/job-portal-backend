@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { ApplicationDetailResponseDto } from '../dto/application-detail-response.dto';
 import { ApplicationResponseDto } from '../dto/application-response.dto';
+import { ApplicationReviewResponseDto } from '../dto/application-review-response.dto';
 import { Application } from '../entities/application.entity';
 
 // `excludeExtraneousValues` keeps a column added to the entity later from
@@ -17,6 +18,14 @@ export function toApplicationDetailDto(
   application: Application,
 ): ApplicationDetailResponseDto {
   return plainToInstance(ApplicationDetailResponseDto, application, {
+    excludeExtraneousValues: true,
+  });
+}
+
+export function toApplicationReviewDto(
+  application: Application,
+): ApplicationReviewResponseDto {
+  return plainToInstance(ApplicationReviewResponseDto, application, {
     excludeExtraneousValues: true,
   });
 }

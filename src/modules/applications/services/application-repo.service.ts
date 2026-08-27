@@ -13,11 +13,14 @@ import {
   isPubliclyVisible,
 } from '../../jobs/domain/job-status';
 import { Job } from '../../jobs/entities/job.entity';
+import { JobRepoService } from '../../jobs/services/job-repo.service';
 import { JobSeekerProfile } from '../../profiles/entities/profile.entity';
 import { isOwnResumeKey } from '../../profiles/modules/job-seeker-profile/domain/resume-key';
 import type { StorageService } from '../../storage/storage.service.interface';
 import { STORAGE_SERVICE } from '../../storage/storage.tokens';
+import { canTransition, isTerminal } from '../domain/application-status';
 import { CreateApplicationDto } from '../dto/create-application.dto';
+import { ListJobApplicationsQueryDto } from '../dto/list-job-applications-query.dto';
 import { ListMyApplicationsQueryDto } from '../dto/list-my-applications-query.dto';
 import { Application, ApplicationStatus } from '../entities/application.entity';
 
@@ -41,6 +44,10 @@ export class ApplicationRepoService {
     private readonly applicationRepository: Repository<Application>,
     @InjectRepository(Job)
     private readonly jobRepository: Repository<Job>,
+    // "Does this employer own this listing?" is a jobs question with an
+    // answer — and an HTTP status — already settled there. Asking it a second
+    // way here is how two modules start disagreeing about who owns what.
+    private readonly jobRepoService: JobRepoService,
     @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
   ) {}
@@ -144,5 +151,87 @@ export class ApplicationRepoService {
       throw new NotFoundException('Application not found.');
     }
     return application;
+  }
+
+  /**
+   * One page of the applications sent to a listing the employer owns, newest
+   * first, each with the candidate attached so a reviewer can read the pile
+   * without a request per row.
+   *
+   * Ownership is proved before anything is read, so an employer pointing at
+   * another company's listing learns nothing about who applied to it. That
+   * check is the listings' one, which means its 403 — the resource being
+   * addressed here is the listing, and the caller has no claim on it.
+   */
+  async findAllForJobOwner(
+    jobId: string,
+    employerProfileId: string,
+    { status, limit, offset }: ListJobApplicationsQueryDto,
+  ): Promise<{ items: Application[]; total: number }> {
+    await this.jobRepoService.findOwned(jobId, employerProfileId);
+
+    // id breaks createdAt ties so paging cannot skip or repeat a row.
+    const [items, total] = await this.applicationRepository.findAndCount({
+      where: status ? { jobId, status } : { jobId },
+      relations: { jobSeekerProfile: true },
+      order: { createdAt: 'DESC', id: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+    return { items, total };
+  }
+
+  /**
+   * Loads an application and proves the given employer owns the listing it
+   * was sent to.
+   *
+   * 404 for both "no such application" and "someone else's", where the
+   * listings' own ownership check would say 403. The difference is what a 403
+   * would admit: that this id names a real application, and so that some
+   * candidate applied somewhere. Compartmentalising candidate data means not
+   * confirming that to a stranger, which is the same reason a seeker reading
+   * another seeker's application gets a 404.
+   */
+  private async findOwnedByJobOwner(
+    id: string,
+    employerProfileId: string,
+  ): Promise<Application> {
+    const application = await this.applicationRepository.findOne({
+      where: { id },
+      relations: { job: true },
+    });
+    if (
+      !application ||
+      application.job?.employerProfileId !== employerProfileId
+    ) {
+      throw new NotFoundException('Application not found.');
+    }
+    return application;
+  }
+
+  /**
+   * Moves one application along the hiring conversation.
+   *
+   * An unreachable move is a 409, not a 400: the body is well-formed and the
+   * status is a real one — what makes the request impossible is where the
+   * application already stands, not the request itself.
+   */
+  async changeStatus(
+    id: string,
+    employerProfileId: string,
+    status: ApplicationStatus,
+  ): Promise<Application> {
+    const application = await this.findOwnedByJobOwner(id, employerProfileId);
+
+    if (!canTransition(application.status, status)) {
+      throw new ConflictException(
+        isTerminal(application.status)
+          ? `A ${application.status} application is a final decision and cannot be moved to ${status}.`
+          : `A ${application.status} application cannot be moved to ${status}.`,
+      );
+    }
+
+    application.status = status;
+    return this.applicationRepository.save(application);
   }
 }
