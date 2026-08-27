@@ -6,7 +6,9 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "transformIgnorePatterns": ["node_modules/\\.pnpm/(?!(jose)@)"],
+  "transformIgnorePatterns": [
+    "node_modules/\\.pnpm/(?!(jose|@nestjs\\+event-emitter)@)"
+  ],
   "moduleNameMapper": {
     "^file-type$": "<rootDir>/helpers/file-type.mock.ts"
   }
