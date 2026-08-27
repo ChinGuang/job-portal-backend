@@ -83,6 +83,10 @@ export class JobController {
     description: "No employer profile, or another company's listing.",
   })
   @ApiResponse({ status: 404, description: 'Job listing not found.' })
+  @ApiResponse({
+    status: 409,
+    description: 'The listing is archived and can no longer be edited.',
+  })
   async update(
     @CurrentEmployerProfile('id') employerProfileId: string,
     @Param('id', ParseUUIDPipe) id: string,

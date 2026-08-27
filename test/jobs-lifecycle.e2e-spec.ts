@@ -1,93 +1,48 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { DataSource } from 'typeorm';
-import { AppModule } from '../src/app.module';
-import { TestAuthSeam } from './helpers/auth.helper';
+import {
+  A_JOB,
+  JOBS_URL,
+  JobBody,
+  JobTestHarness,
+  MINE_URL,
+} from './helpers/jobs.helper';
 
 // Implementation lives in test/__mocks__/jwks-rsa.ts.
 jest.mock('jwks-rsa');
 
-const JOBS_URL = '/jobs';
-const MINE_URL = '/jobs/mine';
-const EMPLOYER_PROFILE_URL = '/profiles/employer';
 const UNKNOWN_ID = '6f9619ff-8b86-d011-b42d-00c04fc964ff';
 
-interface JobBody {
-  id: string;
-  title: string;
-  status: string;
-}
-
-const A_JOB = {
-  title: 'Senior Backend Engineer',
-  description: 'Own the API that powers the portal.',
-  requirements: ['TypeScript', '5 years of backend experience'],
-  location: 'Kuala Lumpur',
-  jobType: 'FULL_TIME',
-};
-
 describe('Job listing lifecycle (e2e)', () => {
-  let app: INestApplication;
-  let dataSource: DataSource;
-  const authSeam = new TestAuthSeam();
+  const harness = new JobTestHarness();
 
   beforeAll(async () => {
-    authSeam.setupKeys();
-    process.env.TEST_PUBLIC_KEY = authSeam.getPublicKeyPem();
-    process.env.SUPABASE_URL = 'http://localhost:3000';
-
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    dataSource = moduleFixture.get<DataSource>(DataSource);
+    await harness.start();
   });
 
   afterEach(async () => {
-    await dataSource.query('TRUNCATE TABLE users CASCADE');
+    await harness.truncate();
   });
 
   afterAll(async () => {
-    await app.close();
+    await harness.stop();
   });
 
-  const authHeader = (sub: string) => `Bearer ${authSeam.mintToken(sub)}`;
-
-  /** Gives `sub` an employer profile so the employer-capability guard passes. */
-  const becomeEmployer = async (sub: string, companyName = 'Acme Inc') => {
-    await request(app.getHttpServer())
-      .post(EMPLOYER_PROFILE_URL)
-      .set('Authorization', authHeader(sub))
-      .send({ companyName })
-      .expect(201);
-  };
-
-  const createJob = async (
-    sub: string,
-    overrides: Record<string, unknown> = {},
-  ): Promise<JobBody> => {
-    const res = await request(app.getHttpServer())
-      .post(JOBS_URL)
-      .set('Authorization', authHeader(sub))
-      .send({ ...A_JOB, ...overrides })
-      .expect(201);
-    return res.body as JobBody;
-  };
-
   const setStatus = (sub: string, id: string, status: string) =>
-    request(app.getHttpServer())
+    request(harness.server)
       .patch(`${JOBS_URL}/${id}/status`)
-      .set('Authorization', authHeader(sub))
+      .set('Authorization', harness.authHeader(sub))
       .send({ status });
+
+  const deleteJob = (sub: string, id: string) =>
+    request(harness.server)
+      .delete(`${JOBS_URL}/${id}`)
+      .set('Authorization', harness.authHeader(sub));
 
   /** Reads the status straight from the database, past any read-path filter. */
   const storedStatus = async (id: string): Promise<string | undefined> => {
-    const rows: { status: string }[] = await dataSource.query(
+    const rows = await harness.query<{ status: string }>(
       `SELECT status FROM jobs WHERE id = $1`,
       [id],
     );
@@ -96,15 +51,15 @@ describe('Job listing lifecycle (e2e)', () => {
 
   /** Walks a listing to PUBLISHED through the API, as an employer would. */
   const publishedJob = async (sub: string): Promise<JobBody> => {
-    const job = await createJob(sub);
+    const job = await harness.createJob(sub);
     await setStatus(sub, job.id, 'PUBLISHED').expect(200);
     return job;
   };
 
   describe('PATCH /jobs/:id/status', () => {
     it('publishes a draft', async () => {
-      await becomeEmployer('pub-1');
-      const job = await createJob('pub-1');
+      await harness.becomeEmployer('pub-1');
+      const job = await harness.createJob('pub-1');
 
       const res = await setStatus('pub-1', job.id, 'PUBLISHED').expect(200);
 
@@ -113,7 +68,7 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('closes a published listing', async () => {
-      await becomeEmployer('pub-2');
+      await harness.becomeEmployer('pub-2');
       const job = await publishedJob('pub-2');
 
       const res = await setStatus('pub-2', job.id, 'CLOSED').expect(200);
@@ -123,8 +78,8 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('leaves the listing content untouched', async () => {
-      await becomeEmployer('pub-3');
-      const job = await createJob('pub-3');
+      await harness.becomeEmployer('pub-3');
+      const job = await harness.createJob('pub-3');
 
       const res = await setStatus('pub-3', job.id, 'PUBLISHED').expect(200);
 
@@ -137,8 +92,8 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('refuses to close a draft that was never published', async () => {
-      await becomeEmployer('conflict-1');
-      const job = await createJob('conflict-1');
+      await harness.becomeEmployer('conflict-1');
+      const job = await harness.createJob('conflict-1');
 
       await setStatus('conflict-1', job.id, 'CLOSED').expect(409);
 
@@ -146,7 +101,7 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('refuses to reopen a closed listing', async () => {
-      await becomeEmployer('conflict-2');
+      await harness.becomeEmployer('conflict-2');
       const job = await publishedJob('conflict-2');
       await setStatus('conflict-2', job.id, 'CLOSED').expect(200);
 
@@ -156,7 +111,7 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('refuses to send a published listing back to draft', async () => {
-      await becomeEmployer('conflict-3');
+      await harness.becomeEmployer('conflict-3');
       const job = await publishedJob('conflict-3');
 
       await setStatus('conflict-3', job.id, 'DRAFT').expect(409);
@@ -166,7 +121,7 @@ describe('Job listing lifecycle (e2e)', () => {
 
     it('refuses to archive through the status endpoint', async () => {
       // Archiving has one door, and it is DELETE.
-      await becomeEmployer('conflict-4');
+      await harness.becomeEmployer('conflict-4');
       const job = await publishedJob('conflict-4');
 
       await setStatus('conflict-4', job.id, 'ARCHIVED').expect(409);
@@ -175,19 +130,16 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('refuses to republish an already-published listing', async () => {
-      await becomeEmployer('conflict-5');
+      await harness.becomeEmployer('conflict-5');
       const job = await publishedJob('conflict-5');
 
       await setStatus('conflict-5', job.id, 'PUBLISHED').expect(409);
     });
 
     it('refuses any move out of ARCHIVED', async () => {
-      await becomeEmployer('conflict-6');
+      await harness.becomeEmployer('conflict-6');
       const job = await publishedJob('conflict-6');
-      await request(app.getHttpServer())
-        .delete(`${JOBS_URL}/${job.id}`)
-        .set('Authorization', authHeader('conflict-6'))
-        .expect(200);
+      await deleteJob('conflict-6', job.id).expect(200);
 
       await setStatus('conflict-6', job.id, 'PUBLISHED').expect(409);
       await setStatus('conflict-6', job.id, 'CLOSED').expect(409);
@@ -196,9 +148,9 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('refuses a status change to another company’s listing with 403', async () => {
-      await becomeEmployer('owner-a', 'Owner Co');
-      await becomeEmployer('intruder-a', 'Intruder Co');
-      const job = await createJob('owner-a');
+      await harness.becomeEmployer('owner-a', 'Owner Co');
+      await harness.becomeEmployer('intruder-a', 'Intruder Co');
+      const job = await harness.createJob('owner-a');
 
       await setStatus('intruder-a', job.id, 'PUBLISHED').expect(403);
 
@@ -207,8 +159,8 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('refuses a status change from a user without an employer profile', async () => {
-      await becomeEmployer('owner-b');
-      const job = await createJob('owner-b');
+      await harness.becomeEmployer('owner-b');
+      const job = await harness.createJob('owner-b');
 
       const res = await setStatus('no-profile-1', job.id, 'PUBLISHED').expect(
         403,
@@ -224,12 +176,12 @@ describe('Job listing lifecycle (e2e)', () => {
       ['a null status', { status: null }],
       ['an unknown field', { status: 'PUBLISHED', reason: 'because' }],
     ])('rejects %s with 400', async (_label, body) => {
-      await becomeEmployer('validation-1');
-      const job = await createJob('validation-1');
+      await harness.becomeEmployer('validation-1');
+      const job = await harness.createJob('validation-1');
 
-      await request(app.getHttpServer())
+      await request(harness.server)
         .patch(`${JOBS_URL}/${job.id}/status`)
-        .set('Authorization', authHeader('validation-1'))
+        .set('Authorization', harness.authHeader('validation-1'))
         .send(body)
         .expect(400);
 
@@ -237,19 +189,19 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('returns 404 for a listing that does not exist', async () => {
-      await becomeEmployer('missing-1');
+      await harness.becomeEmployer('missing-1');
 
       await setStatus('missing-1', UNKNOWN_ID, 'PUBLISHED').expect(404);
     });
 
     it('returns 400 for a malformed id', async () => {
-      await becomeEmployer('missing-2');
+      await harness.becomeEmployer('missing-2');
 
       await setStatus('missing-2', 'not-a-uuid', 'PUBLISHED').expect(400);
     });
 
     it('rejects an unauthenticated status change with 401', async () => {
-      await request(app.getHttpServer())
+      await request(harness.server)
         .patch(`${JOBS_URL}/${UNKNOWN_ID}/status`)
         .send({ status: 'PUBLISHED' })
         .expect(401);
@@ -257,17 +209,12 @@ describe('Job listing lifecycle (e2e)', () => {
   });
 
   describe('DELETE /jobs/:id', () => {
-    const deleteJob = (sub: string, id: string) =>
-      request(app.getHttpServer())
-        .delete(`${JOBS_URL}/${id}`)
-        .set('Authorization', authHeader(sub));
-
     it.each(['DRAFT', 'PUBLISHED', 'CLOSED'])(
       'archives a %s listing instead of removing it',
       async (from) => {
         const sub = `del-${from}`;
-        await becomeEmployer(sub);
-        const job = await createJob(sub);
+        await harness.becomeEmployer(sub);
+        const job = await harness.createJob(sub);
         if (from !== 'DRAFT') {
           await setStatus(sub, job.id, 'PUBLISHED').expect(200);
         }
@@ -284,14 +231,14 @@ describe('Job listing lifecycle (e2e)', () => {
     );
 
     it('keeps the archived listing in the employer’s own feed', async () => {
-      await becomeEmployer('del-mine');
-      const job = await createJob('del-mine');
+      await harness.becomeEmployer('del-mine');
+      const job = await harness.createJob('del-mine');
 
       await deleteJob('del-mine', job.id).expect(200);
 
-      const mine = await request(app.getHttpServer())
+      const mine = await request(harness.server)
         .get(MINE_URL)
-        .set('Authorization', authHeader('del-mine'))
+        .set('Authorization', harness.authHeader('del-mine'))
         .expect(200);
       expect(mine.body.total).toBe(1);
       expect(mine.body.items[0]).toMatchObject({
@@ -301,8 +248,8 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('is idempotent — deleting twice leaves it archived', async () => {
-      await becomeEmployer('del-twice');
-      const job = await createJob('del-twice');
+      await harness.becomeEmployer('del-twice');
+      const job = await harness.createJob('del-twice');
 
       await deleteJob('del-twice', job.id).expect(200);
       const second = await deleteJob('del-twice', job.id).expect(200);
@@ -312,8 +259,8 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('refuses to delete another company’s listing with 403', async () => {
-      await becomeEmployer('owner-c', 'Owner Co');
-      await becomeEmployer('intruder-c', 'Intruder Co');
+      await harness.becomeEmployer('owner-c', 'Owner Co');
+      await harness.becomeEmployer('intruder-c', 'Intruder Co');
       const job = await publishedJob('owner-c');
 
       await deleteJob('intruder-c', job.id).expect(403);
@@ -322,8 +269,8 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('refuses a delete from a user without an employer profile', async () => {
-      await becomeEmployer('owner-d');
-      const job = await createJob('owner-d');
+      await harness.becomeEmployer('owner-d');
+      const job = await harness.createJob('owner-d');
 
       const res = await deleteJob('no-profile-2', job.id).expect(403);
 
@@ -332,41 +279,77 @@ describe('Job listing lifecycle (e2e)', () => {
     });
 
     it('returns 404 for a listing that does not exist', async () => {
-      await becomeEmployer('missing-3');
+      await harness.becomeEmployer('missing-3');
 
       await deleteJob('missing-3', UNKNOWN_ID).expect(404);
     });
 
     it('returns 400 for a malformed id', async () => {
-      await becomeEmployer('missing-4');
+      await harness.becomeEmployer('missing-4');
 
       await deleteJob('missing-4', 'not-a-uuid').expect(400);
     });
 
     it('rejects an unauthenticated delete with 401', async () => {
-      await request(app.getHttpServer())
+      await request(harness.server)
         .delete(`${JOBS_URL}/${UNKNOWN_ID}`)
         .expect(401);
     });
   });
 
+  describe('an archived listing is closed to further change', () => {
+    it('refuses a content edit with 409', async () => {
+      // The row is kept as a record of what happened, so nothing rewrites it.
+      await harness.becomeEmployer('archived-edit');
+      const job = await harness.createJob('archived-edit');
+      await deleteJob('archived-edit', job.id).expect(200);
+
+      await request(harness.server)
+        .patch(`${JOBS_URL}/${job.id}`)
+        .set('Authorization', harness.authHeader('archived-edit'))
+        .send({ title: 'Risen from the dead' })
+        .expect(409);
+
+      const rows = await harness.query<{ title: string }>(
+        `SELECT title FROM jobs WHERE id = $1`,
+        [job.id],
+      );
+      expect(rows[0].title).toBe(A_JOB.title);
+    });
+
+    it('still allows a content edit while the listing is closed', async () => {
+      // Only ARCHIVED is terminal; a closed listing may still be corrected.
+      await harness.becomeEmployer('closed-edit');
+      const job = await publishedJob('closed-edit');
+      await setStatus('closed-edit', job.id, 'CLOSED').expect(200);
+
+      const res = await request(harness.server)
+        .patch(`${JOBS_URL}/${job.id}`)
+        .set('Authorization', harness.authHeader('closed-edit'))
+        .send({ title: 'Senior Backend Engineer (filled)' })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        title: 'Senior Backend Engineer (filled)',
+        status: 'CLOSED',
+      });
+    });
+  });
+
   describe('the lifecycle end to end', () => {
     it('walks draft → published → closed → archived, keeping the row', async () => {
-      await becomeEmployer('walk-1');
-      const job = await createJob('walk-1');
+      await harness.becomeEmployer('walk-1');
+      const job = await harness.createJob('walk-1');
 
       await expect(storedStatus(job.id)).resolves.toBe('DRAFT');
       await setStatus('walk-1', job.id, 'PUBLISHED').expect(200);
       await expect(storedStatus(job.id)).resolves.toBe('PUBLISHED');
       await setStatus('walk-1', job.id, 'CLOSED').expect(200);
       await expect(storedStatus(job.id)).resolves.toBe('CLOSED');
-      await request(app.getHttpServer())
-        .delete(`${JOBS_URL}/${job.id}`)
-        .set('Authorization', authHeader('walk-1'))
-        .expect(200);
+      await deleteJob('walk-1', job.id).expect(200);
       await expect(storedStatus(job.id)).resolves.toBe('ARCHIVED');
 
-      const rows: { count: number }[] = await dataSource.query(
+      const rows = await harness.query<{ count: number }>(
         `SELECT COUNT(*)::int AS count FROM jobs WHERE id = $1`,
         [job.id],
       );

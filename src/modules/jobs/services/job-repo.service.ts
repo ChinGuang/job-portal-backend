@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { canTransition } from '../domain/job-status';
+import { canTransition, isTerminal } from '../domain/job-status';
 import { CreateJobDto } from '../dto/create-job.dto';
 import { ListMyJobsQueryDto } from '../dto/list-my-jobs-query.dto';
 import { UpdateJobDto } from '../dto/update-job.dto';
@@ -68,6 +68,13 @@ export class JobRepoService {
     dto: UpdateJobDto,
   ): Promise<Job> {
     const job = await this.findOwned(id, employerProfileId);
+    // An archived listing is a record of something that happened. Editing it
+    // would rewrite that record, so the content endpoint stops here too.
+    if (isTerminal(job.status)) {
+      throw new ConflictException(
+        'An ARCHIVED listing can no longer be edited.',
+      );
+    }
     Object.assign(job, dto);
     this.assertSalaryRangeIsCoherent(job);
     return this.jobRepository.save(job);
@@ -77,8 +84,8 @@ export class JobRepoService {
    * Moves one of the employer's listings along its lifecycle.
    *
    * An unreachable move is a 409, not a 400: the body is well-formed and the
-   * status is a real one — it is the listing's current state that makes the
-   * request impossible, and that state may well have changed under the caller.
+   * status is a real one — what makes the request impossible is the state the
+   * listing is in, not the request itself.
    */
   async changeStatus(
     id: string,
@@ -105,7 +112,7 @@ export class JobRepoService {
    */
   async archive(id: string, employerProfileId: string): Promise<Job> {
     const job = await this.findOwned(id, employerProfileId);
-    if (job.status === JobStatus.ARCHIVED) {
+    if (isTerminal(job.status)) {
       return job;
     }
     job.status = JobStatus.ARCHIVED;

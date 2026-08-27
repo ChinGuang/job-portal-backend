@@ -1,6 +1,8 @@
 import { JobStatus } from '../entities/job.entity';
 
 // The lifecycle a listing may walk, as the moves available from each status.
+// What each status *means* — which are publicly visible, which accept
+// applications — is documented on `JobStatus` itself.
 //
 // Only the two transitions the lifecycle names are reachable through the
 // status endpoint: a draft is published, and a published listing is closed.
@@ -31,21 +33,9 @@ export function canTransition(from: JobStatus, to: JobStatus): boolean {
 }
 
 /**
- * Whether a listing is visible to the public — anonymously, by direct access.
- *
- * CLOSED stays visible: a candidate following a link to a role that has since
- * closed deserves to be told so, not handed a 404. DRAFT is unfinished and
- * ARCHIVED is withdrawn, so neither is anyone else's business.
+ * Whether a listing has reached the end of its life. An archived listing is
+ * a record of something that happened, so nothing may edit or move it.
  */
-export function isPubliclyVisible(status: JobStatus): boolean {
-  return status === JobStatus.PUBLISHED || status === JobStatus.CLOSED;
-}
-
-/**
- * Whether a listing still takes applications. Only a PUBLISHED listing does,
- * which is the entire point of CLOSED — a listing one can still read but no
- * longer apply to.
- */
-export function acceptsApplications(status: JobStatus): boolean {
-  return status === JobStatus.PUBLISHED;
+export function isTerminal(status: JobStatus): boolean {
+  return status === JobStatus.ARCHIVED;
 }
