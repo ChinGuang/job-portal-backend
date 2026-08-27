@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { canTransition } from '../domain/job-status';
 import { CreateJobDto } from '../dto/create-job.dto';
 import { ListMyJobsQueryDto } from '../dto/list-my-jobs-query.dto';
 import { UpdateJobDto } from '../dto/update-job.dto';
@@ -68,6 +70,45 @@ export class JobRepoService {
     const job = await this.findOwned(id, employerProfileId);
     Object.assign(job, dto);
     this.assertSalaryRangeIsCoherent(job);
+    return this.jobRepository.save(job);
+  }
+
+  /**
+   * Moves one of the employer's listings along its lifecycle.
+   *
+   * An unreachable move is a 409, not a 400: the body is well-formed and the
+   * status is a real one — it is the listing's current state that makes the
+   * request impossible, and that state may well have changed under the caller.
+   */
+  async changeStatus(
+    id: string,
+    employerProfileId: string,
+    status: JobStatus,
+  ): Promise<Job> {
+    const job = await this.findOwned(id, employerProfileId);
+    if (!canTransition(job.status, status)) {
+      throw new ConflictException(
+        `A ${job.status} listing cannot be moved to ${status}.`,
+      );
+    }
+    job.status = status;
+    return this.jobRepository.save(job);
+  }
+
+  /**
+   * Deletes a listing the soft way: it becomes ARCHIVED and the row stays,
+   * so applications made against it keep pointing at something real.
+   *
+   * Archiving an archived listing succeeds without a second write. A delete
+   * that has already happened is not an error to report, it is the state the
+   * caller asked for.
+   */
+  async archive(id: string, employerProfileId: string): Promise<Job> {
+    const job = await this.findOwned(id, employerProfileId);
+    if (job.status === JobStatus.ARCHIVED) {
+      return job;
+    }
+    job.status = JobStatus.ARCHIVED;
     return this.jobRepository.save(job);
   }
 
