@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -19,6 +20,7 @@ import { CreateJobDto } from './dto/create-job.dto';
 import { JobListResponseDto } from './dto/job-list-response.dto';
 import { JobResponseDto } from './dto/job-response.dto';
 import { ListMyJobsQueryDto } from './dto/list-my-jobs-query.dto';
+import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { Job } from './entities/job.entity';
 import { JobRepoService } from './services/job-repo.service';
@@ -81,12 +83,75 @@ export class JobController {
     description: "No employer profile, or another company's listing.",
   })
   @ApiResponse({ status: 404, description: 'Job listing not found.' })
+  @ApiResponse({
+    status: 409,
+    description: 'The listing is archived and can no longer be edited.',
+  })
   async update(
     @CurrentEmployerProfile('id') employerProfileId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateJobDto,
   ): Promise<JobResponseDto> {
     const job = await this.jobRepoService.update(id, employerProfileId, dto);
+    return toResponseDto(job);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, EmployerProfileGuard)
+  @ApiOperation({
+    summary: "Move one of the caller's listings along its lifecycle",
+    description:
+      '`DRAFT` → `PUBLISHED` publishes a listing and `PUBLISHED` → `CLOSED` ' +
+      'stops it accepting applications while it stays publicly readable. ' +
+      'Archiving is done with `DELETE /jobs/:id`.',
+  })
+  @ApiResponse({ status: 200, type: JobResponseDto })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({
+    status: 403,
+    description: "No employer profile, or another company's listing.",
+  })
+  @ApiResponse({ status: 404, description: 'Job listing not found.' })
+  @ApiResponse({
+    status: 409,
+    description: 'The listing cannot move to that status from its current one.',
+  })
+  async changeStatus(
+    @CurrentEmployerProfile('id') employerProfileId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateJobStatusDto,
+  ): Promise<JobResponseDto> {
+    const job = await this.jobRepoService.changeStatus(
+      id,
+      employerProfileId,
+      dto.status,
+    );
+    return toResponseDto(job);
+  }
+
+  // Returns the archived listing rather than 204: "deleting" here means the
+  // listing moved to ARCHIVED, and handing back the row says so plainly.
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, EmployerProfileGuard)
+  @ApiOperation({
+    summary: "Delete one of the caller's listings by archiving it",
+    description:
+      'A soft operation: the listing becomes `ARCHIVED` and stops being ' +
+      'publicly visible, but the row is never removed, so application ' +
+      'history survives. Archiving an archived listing changes nothing.',
+  })
+  @ApiResponse({ status: 200, type: JobResponseDto })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({
+    status: 403,
+    description: "No employer profile, or another company's listing.",
+  })
+  @ApiResponse({ status: 404, description: 'Job listing not found.' })
+  async remove(
+    @CurrentEmployerProfile('id') employerProfileId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<JobResponseDto> {
+    const job = await this.jobRepoService.archive(id, employerProfileId);
     return toResponseDto(job);
   }
 }

@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { canTransition, isTerminal } from '../domain/job-status';
 import { CreateJobDto } from '../dto/create-job.dto';
 import { ListMyJobsQueryDto } from '../dto/list-my-jobs-query.dto';
 import { UpdateJobDto } from '../dto/update-job.dto';
@@ -66,8 +68,54 @@ export class JobRepoService {
     dto: UpdateJobDto,
   ): Promise<Job> {
     const job = await this.findOwned(id, employerProfileId);
+    // An archived listing is a record of something that happened. Editing it
+    // would rewrite that record, so the content endpoint stops here too.
+    if (isTerminal(job.status)) {
+      throw new ConflictException(
+        'An ARCHIVED listing can no longer be edited.',
+      );
+    }
     Object.assign(job, dto);
     this.assertSalaryRangeIsCoherent(job);
+    return this.jobRepository.save(job);
+  }
+
+  /**
+   * Moves one of the employer's listings along its lifecycle.
+   *
+   * An unreachable move is a 409, not a 400: the body is well-formed and the
+   * status is a real one — what makes the request impossible is the state the
+   * listing is in, not the request itself.
+   */
+  async changeStatus(
+    id: string,
+    employerProfileId: string,
+    status: JobStatus,
+  ): Promise<Job> {
+    const job = await this.findOwned(id, employerProfileId);
+    if (!canTransition(job.status, status)) {
+      throw new ConflictException(
+        `A ${job.status} listing cannot be moved to ${status}.`,
+      );
+    }
+    job.status = status;
+    return this.jobRepository.save(job);
+  }
+
+  /**
+   * Deletes a listing the soft way: it becomes ARCHIVED and the row stays,
+   * so applications made against it keep pointing at something real.
+   *
+   * Archiving an archived listing succeeds without a second write. A delete
+   * that has already happened is not an error to report, it is the state the
+   * caller asked for.
+   */
+  async archive(id: string, employerProfileId: string): Promise<Job> {
+    const job = await this.findOwned(id, employerProfileId);
+    if (isTerminal(job.status)) {
+      return job;
+    }
+    job.status = JobStatus.ARCHIVED;
     return this.jobRepository.save(job);
   }
 
