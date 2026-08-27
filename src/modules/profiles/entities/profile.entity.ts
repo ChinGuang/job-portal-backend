@@ -32,7 +32,7 @@ export class EmployerProfile implements IEmployerProfile {
   @Column({ type: 'uuid', nullable: false })
   userId!: string;
 
-  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  @OneToOne(() => User, { cascade: ['soft-remove'] })
   @JoinColumn()
   user!: User;
 
@@ -75,7 +75,7 @@ export class JobSeekerProfile {
   @Column({ type: 'uuid', nullable: false })
   userId!: string;
 
-  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  @OneToOne(() => User, { cascade: ['soft-remove'] })
   @JoinColumn({ name: 'userId' })
   user?: User;
 

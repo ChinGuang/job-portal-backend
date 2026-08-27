@@ -5,8 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  type EmployerProfileSoftDeleteEvent,
+  EventName,
+} from '../../../common/constants/event';
 import {
   PUBLICLY_VISIBLE_STATUSES,
   canTransition,
@@ -226,5 +231,17 @@ export class JobRepoService {
       throw new NotFoundException('Job listing not found.');
     }
     return job;
+  }
+
+  @OnEvent(EventName.EMPLOYER_PROFILE_SOFT_DELETED)
+  async onEmployerProfileSoftDelete(payload: EmployerProfileSoftDeleteEvent) {
+    await this.jobRepository.update(
+      [
+        {
+          employerProfileId: payload.id,
+        },
+      ],
+      { status: JobStatus.ARCHIVED },
+    );
   }
 }
