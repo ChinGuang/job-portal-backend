@@ -4,11 +4,8 @@ import { IsInt, IsOptional, Max, Min } from 'class-validator';
 import { ListPaging } from '../constants/paging';
 
 /**
- * Offset/limit paging, shared by every listing feed in the API.
- *
- * The employer's own listings, the public job board and a seeker's own
- * applications all page the same way, so the rules live in one place: a second
- * copy is how two feeds start disagreeing about what `limit=0` means.
+ * Offset/limit paging for every listing feed. One copy, because a second is
+ * how two feeds start disagreeing about what `limit=0` means.
  */
 export class PagingQueryDto {
   @ApiPropertyOptional({

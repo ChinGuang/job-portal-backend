@@ -39,11 +39,7 @@ describe('Applying to a job (e2e)', () => {
     await harness.stop();
   });
 
-  /**
-   * The common arrangement: an employer with a published listing, and a seeker
-   * with a profile and a résumé on it — the state in which applying is meant
-   * to just work. Each test that needs something different builds it itself.
-   */
+  /** The state in which applying is meant to just work. */
   async function arrangePublishedJobAndSeeker(
     employer = 'employer',
     seeker = 'seeker',
@@ -108,9 +104,8 @@ describe('Applying to a job (e2e)', () => {
 
     it('prefers a résumé named on the request over the profile one', async () => {
       const { job, profile, resumeUrl } = await arrangePublishedJobAndSeeker();
-      // A second résumé really in the bucket under this seeker's own prefix —
-      // the tailored-CV case. There is no per-application upload endpoint yet,
-      // so it is put there directly rather than through one.
+      // The tailored-CV case. No per-application upload endpoint exists yet,
+      // so the object goes in directly.
       const tailored = `${profile.id}/tailored-resume.pdf`;
       await harness.storage.upload(
         tailored,
@@ -130,10 +125,7 @@ describe('Applying to a job (e2e)', () => {
     it('refuses a résumé key of its own that was never uploaded', async () => {
       const { job, profile } = await arrangePublishedJobAndSeeker();
 
-      // Own-prefixed, so the ownership rule passes — but nothing is stored
-      // there. Accepting it would hand the employer a key resolving to
-      // nothing, and would let a seeker with no résumé at all apply by
-      // inventing one.
+      // Own-prefixed, so ownership passes, but nothing is stored there.
       const res = await apply('seeker', job.id, {
         resumeUrl: `${profile.id}/never-uploaded.pdf`,
       }).expect(400);
@@ -162,8 +154,7 @@ describe('Applying to a job (e2e)', () => {
 
       await apply('seeker', job.id).expect(201);
 
-      // Applying uploaded nothing; it recorded the key of the object the
-      // résumé upload had already put there.
+      // Applying uploaded nothing; it recorded an existing object's key.
       expect(harness.storage.has(resumeUrl)).toBe(true);
     });
 
@@ -305,8 +296,7 @@ describe('Applying to a job (e2e)', () => {
     it('rejects a client-supplied status outright', async () => {
       const { job } = await arrangePublishedJobAndSeeker();
 
-      // Status is not part of the apply contract — moving an application on is
-      // the employer's doing — so the whitelist must refuse the attempt.
+      // Status is not part of the apply contract, so the whitelist refuses it.
       await apply('seeker', job.id, { status: 'OFFERED' }).expect(400);
     });
   });
@@ -423,8 +413,8 @@ describe('Applying to a job (e2e)', () => {
         .set('Authorization', harness.authHeader('seeker'))
         .expect(200);
 
-      // The public read path hides a role that ended; a seeker holding an
-      // application to it deserves to see what became of it.
+      // The public read path hides an ended role; the seeker who applied to it
+      // still sees what became of it.
       expect((res.body as ApplicationBody).job?.status).toBe('CLOSED');
     });
 
@@ -433,8 +423,7 @@ describe('Applying to a job (e2e)', () => {
       const created = await apply('seeker', job.id).expect(201);
       await harness.becomeJobSeekerWithResume('nosy', 'Nosy Parker');
 
-      // 404, not 403: a 403 would confirm to a stranger that the application
-      // exists, which is exactly what an application is meant not to reveal.
+      // 404, not 403: a 403 would confirm the application exists.
       await request(harness.server)
         .get(`${APPLICATIONS_URL}/${(created.body as ApplicationBody).id}`)
         .set('Authorization', harness.authHeader('nosy'))

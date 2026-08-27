@@ -19,10 +19,8 @@ export class ApplicationResponseDto {
   @Expose()
   coverLetter?: string | null;
 
-  // The snapshot exactly as it was stored: a private-bucket object key, not a
-  // URL anyone can fetch. It is handed back unsigned on purpose — exchanging a
-  // key for a short-lived signed URL is the résumé-access endpoint's job, and
-  // signing here would cost one round trip per row on the list feed.
+  // Unsigned on purpose: signing is the résumé-access endpoint's job, and
+  // doing it here would cost a round trip per row on the list feed.
   @ApiProperty({
     description:
       'The résumé attached to this application, as a storage key. Not ' +

@@ -68,11 +68,8 @@ export class SupabaseStorageService implements StorageService {
     return data.signedUrl;
   }
 
-  // Listed rather than downloaded or signed: `list` with a search term is the
-  // cheapest question the API answers about one object, and unlike
-  // createSignedUrl it distinguishes "no such object" from a real failure —
-  // which matters, because a caller reads `false` as "you named a file that
-  // isn't there" rather than as an outage.
+  // Listed rather than signed: unlike createSignedUrl, `list` distinguishes
+  // "no such object" from a real failure.
   async exists(path: string): Promise<boolean> {
     const separator = path.lastIndexOf('/');
     const directory = separator === -1 ? '' : path.slice(0, separator);

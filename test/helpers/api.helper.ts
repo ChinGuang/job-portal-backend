@@ -55,13 +55,8 @@ export interface JobSeekerProfileBody {
 
 /**
  * The e2e suites' shared seam: a real Nest application over the real test
- * database, with tokens minted locally. Every spec boots the same way, so the
- * bootstrap and the "act as this employer / this job seeker" shorthands live
- * here rather than being copied into each one.
- *
- * Storage is the one collaborator that is faked, because it is the one that
- * would otherwise leave the machine. Everything else — guards, the validation
- * pipe, the services, TypeORM — is the real thing behind a real request.
+ * database, with tokens minted locally. Storage is the only faked
+ * collaborator, being the only one that would otherwise leave the machine.
  */
 export class ApiTestHarness {
   private app!: INestApplication;
@@ -131,11 +126,8 @@ export class ApiTestHarness {
     return res.body as EmployerProfileBody;
   }
 
-  /**
-   * Gives `sub` a job seeker profile so the job-seeker-capability guard
-   * passes. The profile starts with no résumé — `uploadResume` adds one — so
-   * that the "applying with no résumé anywhere" case is reachable.
-   */
+  /** A job seeker profile with no résumé yet, so the "none anywhere" case is
+   * still reachable. */
   async becomeJobSeeker(
     sub: string,
     name = 'Ada Lovelace',
@@ -148,11 +140,8 @@ export class ApiTestHarness {
     return res.body as JobSeekerProfileBody;
   }
 
-  /**
-   * Puts a résumé on `sub`'s job seeker profile through the real upload
-   * endpoint, and answers with the storage key it was stored under — which is
-   * what an application snapshots, and what the response's signed URL hides.
-   */
+  /** Uploads a résumé for real, returning the storage key behind the response's
+   * signed URL — the value an application snapshots. */
   async uploadResume(sub: string): Promise<string> {
     await request(this.server)
       .post(JOB_SEEKER_RESUME_URL)

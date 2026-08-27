@@ -17,12 +17,8 @@ import { ApplicationResponseDto } from './dto/application-response.dto';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { ApplicationRepoService } from './services/application-repo.service';
 
-/**
- * Applying lives under the listing — it is something you do *to* a job — while
- * reading applications back lives under `/applications`, because by then the
- * application is the thing the seeker is looking at. Two paths, so two
- * controllers, rather than one controller answering on both.
- */
+// Applying lives under the listing; reading applications back lives under
+// `/applications`. Two paths, so two controllers.
 @ApiTags(SwaggerTag.APPLICATIONS)
 @Controller('jobs/:jobId/applications')
 @UseGuards(JwtAuthGuard, JobSeekerProfileGuard)

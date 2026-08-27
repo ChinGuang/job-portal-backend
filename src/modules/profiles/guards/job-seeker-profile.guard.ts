@@ -18,13 +18,10 @@ export interface RequestWithJobSeekerProfile {
 }
 
 /**
- * The job seeker capability check, and the twin of EmployerProfileGuard. There
- * is no role column — "is a job seeker" means a job seeker profile exists for
- * the caller — so this guard both enforces the capability and hands the
- * resolved profile to the handler, sparing it a second lookup.
- *
- * Being a guard, it answers before the validation pipe: a caller with no job
- * seeker profile is told about the profile rather than about a malformed body.
+ * The twin of EmployerProfileGuard: "is a job seeker" means a job seeker
+ * profile exists, so this both enforces the capability and hands the resolved
+ * profile to the handler. Being a guard, it answers before the validation
+ * pipe, so a caller without one hears about the profile, not their body.
  */
 @Injectable()
 export class JobSeekerProfileGuard implements CanActivate {
@@ -37,8 +34,8 @@ export class JobSeekerProfileGuard implements CanActivate {
       .switchToHttp()
       .getRequest<RequestWithJobSeekerProfile>();
 
-    // Unreachable behind JwtAuthGuard, but the two failures are different
-    // rules: no principal is a 401, a principal without the profile is a 403.
+    // Unreachable behind JwtAuthGuard, but no principal is a 401 while a
+    // principal without the profile is a 403.
     const userId = request.user?.id;
     if (!userId) {
       throw new UnauthorizedException();

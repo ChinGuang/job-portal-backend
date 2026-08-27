@@ -8,18 +8,13 @@ import { Application } from './entities/application.entity';
 import { JobApplicationController } from './job-application.controller';
 import { ApplicationRepoService } from './services/application-repo.service';
 
-/**
- * `Job` is registered here as a repository rather than reached through the
- * jobs module's service: applying asks one question of a listing — may this be
- * applied to? — and that question is an applications rule, not one the jobs
- * module should grow an owner-less read path to answer.
- */
+// `Job` is registered here rather than reached through the jobs module's
+// service: "may this be applied to?" is an applications rule.
 @Module({
   imports: [
     TypeOrmModule.forFeature([Application, Job]),
     JobSeekerProfileModule,
-    // Applying never uploads, but it does have to confirm that a résumé key a
-    // client named is really in the bucket.
+    // Applying never uploads, but does confirm a client-named key exists.
     StorageModule,
   ],
   providers: [ApplicationRepoService],
