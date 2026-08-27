@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Portal — Demo Sign-In</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --border: #ccc;
+      --muted: #666;
+      --bg-code: #f4f4f4;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 640px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.4rem; }
+    p.hint { color: var(--muted); font-size: 0.9rem; }
+    fieldset {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+    }
+    legend { font-weight: 600; padding: 0 0.4rem; }
+    label { display: block; margin-top: 0.6rem; font-size: 0.9rem; }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.5rem;
+      margin-top: 0.25rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    button {
+      margin-top: 0.8rem;
+      padding: 0.55rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #f0f0f0;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    button:hover { background: #e4e4e4; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 6rem;
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      font-family: ui-monospace, monospace;
+      font-size: 0.8rem;
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    #status { min-height: 1.2rem; font-size: 0.9rem; margin-top: 0.5rem; }
+    #status.error { color: #b00020; }
+    #status.ok { color: #0a7d28; }
+  </style>
+</head>
+<body>
+  <h1>Job Portal — Demo Sign-In</h1>
+  <p class="hint">
+    Throwaway harness for getting a Supabase access token to paste into Swagger
+    (<code>/api</code>). Not a product frontend. Serve this file over
+    <code>http(s)</code> — see the README's "Demo harness" section — Google
+    sign-in will not complete correctly if opened directly as a
+    <code>file://</code> URL.
+  </p>
+
+  <fieldset>
+    <legend>Supabase project</legend>
+    <label for="supabase-url">Project URL</label>
+    <input id="supabase-url" type="text" placeholder="https://xxxxx.supabase.co" />
+    <label for="supabase-anon-key">Anon (public) key</label>
+    <input id="supabase-anon-key" type="text" placeholder="eyJhbGciOi..." />
+    <p class="hint">
+      Saved to this browser's local storage only, so you don't have to
+      re-enter it every session.
+    </p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Email / password sign-in</legend>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="email" />
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" />
+    <button id="email-signin">Sign in with email</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Google sign-in</legend>
+    <button id="google-signin">Sign in with Google</button>
+  </fieldset>
+
+  <div id="status"></div>
+
+  <fieldset id="token-box" hidden>
+    <legend>Access token</legend>
+    <textarea id="access-token" readonly></textarea>
+    <button id="copy-token">Copy</button>
+    <button id="sign-out">Sign out</button>
+  </fieldset>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const urlInput = document.getElementById('supabase-url');
+    const anonKeyInput = document.getElementById('supabase-anon-key');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const emailSignInBtn = document.getElementById('email-signin');
+    const googleSignInBtn = document.getElementById('google-signin');
+    const statusEl = document.getElementById('status');
+    const tokenBox = document.getElementById('token-box');
+    const tokenEl = document.getElementById('access-token');
+    const copyBtn = document.getElementById('copy-token');
+    const signOutBtn = document.getElementById('sign-out');
+
+    // Persist project config across the Google OAuth full-page redirect.
+    urlInput.value = localStorage.getItem('demo.supabaseUrl') ?? '';
+    anonKeyInput.value = localStorage.getItem('demo.supabaseAnonKey') ?? '';
+    urlInput.addEventListener('change', () =>
+      localStorage.setItem('demo.supabaseUrl', urlInput.value.trim()),
+    );
+    anonKeyInput.addEventListener('change', () =>
+      localStorage.setItem('demo.supabaseAnonKey', anonKeyInput.value.trim()),
+    );
+
+    function setStatus(message, kind) {
+      statusEl.textContent = message;
+      statusEl.className = kind ?? '';
+    }
+
+    function showSession(session) {
+      if (!session) {
+        tokenBox.hidden = true;
+        return;
+      }
+      tokenEl.value = session.access_token;
+      tokenBox.hidden = false;
+      setStatus(`Signed in as ${session.user.email ?? session.user.id}`, 'ok');
+    }
+
+    function getClient() {
+      const supabaseUrl = urlInput.value.trim();
+      const supabaseAnonKey = anonKeyInput.value.trim();
+      if (!supabaseUrl || !supabaseAnonKey) {
+        setStatus('Enter the Supabase project URL and anon key first.', 'error');
+        return null;
+      }
+      return createClient(supabaseUrl, supabaseAnonKey);
+    }
+
+    let client = getClient();
+    if (client) {
+      client.auth.onAuthStateChange((_event, session) => showSession(session));
+      client.auth.getSession().then(({ data }) => showSession(data.session));
+    }
+
+    emailSignInBtn.addEventListener('click', async () => {
+      client = getClient();
+      if (!client) return;
+      setStatus('Signing in…');
+      const { data, error } = await client.auth.signInWithPassword({
+        email: emailInput.value.trim(),
+        password: passwordInput.value,
+      });
+      if (error) {
+        setStatus(error.message, 'error');
+        return;
+      }
+      showSession(data.session);
+    });
+
+    googleSignInBtn.addEventListener('click', async () => {
+      client = getClient();
+      if (!client) return;
+      setStatus('Redirecting to Google…');
+      const { error } = await client.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.href },
+      });
+      if (error) setStatus(error.message, 'error');
+      // On success the browser navigates away; the redirect back is handled
+      // by onAuthStateChange above (detectSessionInUrl is on by default).
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(tokenEl.value);
+      setStatus('Copied to clipboard.', 'ok');
+    });
+
+    signOutBtn.addEventListener('click', async () => {
+      if (!client) return;
+      await client.auth.signOut();
+      showSession(null);
+      setStatus('Signed out.');
+    });
+  </script>
+</body>
+</html>
