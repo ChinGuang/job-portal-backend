@@ -6,12 +6,32 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { canTransition, isTerminal } from '../domain/job-status';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  PUBLICLY_VISIBLE_STATUSES,
+  canTransition,
+  isTerminal,
+} from '../domain/job-status';
+import { BrowseJobsQueryDto } from '../dto/browse-jobs-query.dto';
 import { CreateJobDto } from '../dto/create-job.dto';
 import { ListMyJobsQueryDto } from '../dto/list-my-jobs-query.dto';
 import { UpdateJobDto } from '../dto/update-job.dto';
 import { Job, JobStatus } from '../entities/job.entity';
+
+/**
+ * Turns a visitor's words into a case-insensitive "contains" pattern.
+ *
+ * The escaping is the point. `%` and `_` are wildcards to LIKE, so a visitor
+ * searching for "100%" would otherwise match every listing, and one searching
+ * "a_b" would match "axb". Escaping them — and the escape character itself,
+ * first, so it cannot double-escape what follows — makes the search mean what
+ * was typed. This is a matching concern, not an injection one: the pattern is
+ * still bound as a parameter.
+ */
+function containsPattern(term: string): string {
+  const escaped = term.replace(/[\\%_]/g, '\\$&');
+  return `%${escaped}%`;
+}
 
 @Injectable()
 export class JobRepoService {
@@ -134,5 +154,77 @@ export class JobRepoService {
       skip: offset,
     });
     return { items, total };
+  }
+
+  /**
+   * Narrows a query to what a visitor asked for. Every clause is additive, so
+   * an absent filter is simply a clause that was never added — which is why
+   * the DTO turns a blank filter into `undefined` before it gets here.
+   */
+  private applyBrowseFilters(
+    builder: SelectQueryBuilder<Job>,
+    { jobType, location, keyword }: BrowseJobsQueryDto,
+  ): void {
+    if (jobType) {
+      builder.andWhere('job.jobType = :jobType', { jobType });
+    }
+    if (location) {
+      builder.andWhere('job.location ILIKE :location', {
+        location: containsPattern(location),
+      });
+    }
+    if (keyword) {
+      builder.andWhere(
+        '(job.title ILIKE :keyword OR job.description ILIKE :keyword)',
+        { keyword: containsPattern(keyword) },
+      );
+    }
+  }
+
+  /**
+   * One page of the public job board, newest first.
+   *
+   * PUBLISHED alone, not every publicly *readable* status: a CLOSED listing
+   * stays reachable by its link so a candidate learns the role is gone, but
+   * putting it in the browse list would offer people roles they cannot apply
+   * to. `total` counts every listing matching the filters, not just the page,
+   * so a client can size the pager before walking it.
+   */
+  async findPublished(
+    query: BrowseJobsQueryDto,
+  ): Promise<{ items: Job[]; total: number }> {
+    const { limit, offset } = query;
+    const builder = this.jobRepository
+      .createQueryBuilder('job')
+      .where('job.status = :status', { status: JobStatus.PUBLISHED });
+    this.applyBrowseFilters(builder, query);
+
+    // id breaks ties on createdAt, so paging cannot show or skip a listing
+    // just because two were published in the same instant.
+    const [items, total] = await builder
+      .orderBy('job.createdAt', 'DESC')
+      .addOrderBy('job.id', 'DESC')
+      .take(limit)
+      .skip(offset)
+      .getManyAndCount();
+    return { items, total };
+  }
+
+  /**
+   * One listing as a visitor may read it, with the company attached.
+   *
+   * A DRAFT or ARCHIVED listing is a 404 rather than a 403: to someone with no
+   * claim on it, an unpublished listing does not exist, and a 403 would confirm
+   * that an id is real — which is exactly what a draft is meant not to reveal.
+   */
+  async findPubliclyVisible(id: string): Promise<Job> {
+    const job = await this.jobRepository.findOne({
+      where: { id, status: In([...PUBLICLY_VISIBLE_STATUSES]) },
+      relations: { employerProfile: true },
+    });
+    if (!job) {
+      throw new NotFoundException('Job listing not found.');
+    }
+    return job;
   }
 }

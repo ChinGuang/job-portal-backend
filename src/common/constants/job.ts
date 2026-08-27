@@ -17,8 +17,21 @@ export const JobLimit = {
   MAX_SALARY: 1_000_000_000,
 } as const;
 
-// Paging defaults for an employer's own-listing feed.
+// Paging defaults shared by every listing feed — the employer's own and the
+// public one — so the two never drift into answering the same question with
+// different page sizes.
 export const JobListPaging = {
   DEFAULT_LIMIT: 20,
   MAX_LIMIT: 100,
+} as const;
+
+// Bounds on what a visitor may type when browsing.
+//
+// A keyword is matched against the title *and* the description, so the bound
+// follows the longer of the two surfaces: anything past it could not be a
+// substring of either field, which makes it a query that cannot match rather
+// than a search worth running. Taking the title's bound instead would 400 a
+// long phrase that a description genuinely contains.
+export const JobBrowseLimit = {
+  KEYWORD_MAX_LENGTH: JobLimit.DESCRIPTION_MAX_LENGTH,
 } as const;

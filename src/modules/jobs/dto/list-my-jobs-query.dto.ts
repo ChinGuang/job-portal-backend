@@ -1,24 +1,8 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
-import { JobListPaging } from '../../../common/constants/job';
+import { JobPagingQueryDto } from './job-paging-query.dto';
 
-export class ListMyJobsQueryDto {
-  @ApiPropertyOptional({
-    default: JobListPaging.DEFAULT_LIMIT,
-    maximum: JobListPaging.MAX_LIMIT,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(JobListPaging.MAX_LIMIT)
-  limit: number = JobListPaging.DEFAULT_LIMIT;
-
-  @ApiPropertyOptional({ default: 0 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  offset: number = 0;
-}
+/**
+ * The employer's own feed takes paging and nothing else: it is deliberately
+ * unfiltered, because an employer wants to see everything they own — every
+ * status included — rather than search it.
+ */
+export class ListMyJobsQueryDto extends JobPagingQueryDto {}

@@ -39,3 +39,17 @@ export function canTransition(from: JobStatus, to: JobStatus): boolean {
 export function isTerminal(status: JobStatus): boolean {
   return status === JobStatus.ARCHIVED;
 }
+
+// The statuses a visitor is allowed to see, and the single place the read path
+// asks that question.
+//
+// DRAFT is absent because it has never been shown to anyone, and ARCHIVED
+// because it is a record of something that ended. CLOSED stays readable on
+// purpose: a candidate holding a link deserves to learn the role is gone
+// rather than meet a 404 that implies they misremembered it. Browsing still
+// leaves CLOSED out of the *list* — that is a listing decision, made where the
+// list is built.
+export const PUBLICLY_VISIBLE_STATUSES: readonly JobStatus[] = [
+  JobStatus.PUBLISHED,
+  JobStatus.CLOSED,
+];
