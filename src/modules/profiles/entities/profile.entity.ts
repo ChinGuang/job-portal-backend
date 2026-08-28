@@ -77,7 +77,7 @@ export class JobSeekerProfile {
   @Column({ type: 'uuid', nullable: false })
   userId!: string;
 
-  @OneToOne(() => User, (user) => user.jobseekerProfile)
+  @OneToOne(() => User, (user) => user.jobSeekerProfile)
   @JoinColumn({ name: 'userId' })
   user?: User;
 
@@ -114,4 +114,7 @@ export class JobSeekerProfile {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz' })
+  deletedAt?: Date;
 }

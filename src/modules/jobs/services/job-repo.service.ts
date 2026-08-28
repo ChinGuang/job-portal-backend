@@ -235,12 +235,11 @@ export class JobRepoService {
 
   @OnEvent(EventName.EMPLOYER_PROFILE_SOFT_DELETED)
   async onEmployerProfileSoftDelete(payload: EmployerProfileSoftDeleteEvent) {
-    await this.jobRepository.update(
-      [
-        {
-          employerProfileId: payload.id,
-        },
-      ],
+    await payload.manager.update(
+      Job,
+      {
+        employerProfileId: payload.id,
+      },
       { status: JobStatus.ARCHIVED },
     );
   }

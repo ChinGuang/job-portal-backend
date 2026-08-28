@@ -71,5 +71,5 @@ export class User implements SupabaseUser {
   @OneToOne(() => JobSeekerProfile, (profile) => profile.user, {
     cascade: ['soft-remove'],
   })
-  jobseekerProfile?: JobSeekerProfile;
+  jobSeekerProfile?: JobSeekerProfile;
 }

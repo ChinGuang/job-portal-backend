@@ -34,6 +34,7 @@ export class EmployerProfileSubscriber implements EntitySubscriberInterface<Empl
       EventName.EMPLOYER_PROFILE_SOFT_DELETED,
       {
         id: event.entityId,
+        manager: event.manager,
       },
     );
   }
