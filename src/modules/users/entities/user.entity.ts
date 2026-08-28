@@ -6,9 +6,14 @@ import {
   DeleteDateColumn,
   Entity,
   Index,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import {
+  EmployerProfile,
+  JobSeekerProfile,
+} from '../../profiles/entities/profile.entity';
 
 export enum AuthProvider {
   SUPABASE = 'SUPABASE',
@@ -57,4 +62,14 @@ export class User implements SupabaseUser {
 
   @DeleteDateColumn({ type: 'timestamptz', nullable: true })
   deletedAt?: Date | null;
+
+  @OneToOne(() => EmployerProfile, (profile) => profile.user, {
+    cascade: ['soft-remove'],
+  })
+  employerProfile?: EmployerProfile;
+
+  @OneToOne(() => JobSeekerProfile, (profile) => profile.user, {
+    cascade: ['soft-remove'],
+  })
+  jobseekerProfile?: JobSeekerProfile;
 }

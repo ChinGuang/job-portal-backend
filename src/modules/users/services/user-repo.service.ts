@@ -64,6 +64,12 @@ export class UserRepoService {
   }
 
   async softDeleteBySupabaseId(supabaseId: string): Promise<void> {
-    await this.userRepository.softDelete({ supabaseId });
+    const user = await this.userRepository.findOne({
+      where: { supabaseId },
+      relations: { employerProfile: true },
+    });
+    if (user) {
+      await this.userRepository.softRemove(user);
+    }
   }
 }

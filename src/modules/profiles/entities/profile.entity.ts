@@ -32,7 +32,9 @@ export class EmployerProfile implements IEmployerProfile {
   @Column({ type: 'uuid', nullable: false })
   userId!: string;
 
-  @OneToOne(() => User, { cascade: ['soft-remove'] })
+  // The cascade lives on the User side (User.employerProfile): soft-removing a
+  // user cascades here, and the subscriber on this entity archives the listings.
+  @OneToOne(() => User, (user) => user.employerProfile)
   @JoinColumn()
   user!: User;
 
@@ -75,7 +77,7 @@ export class JobSeekerProfile {
   @Column({ type: 'uuid', nullable: false })
   userId!: string;
 
-  @OneToOne(() => User, { cascade: ['soft-remove'] })
+  @OneToOne(() => User, (user) => user.jobseekerProfile)
   @JoinColumn({ name: 'userId' })
   user?: User;
 
