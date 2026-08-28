@@ -16,7 +16,10 @@ import {
 import { Job } from '../../jobs/entities/job.entity';
 import { JobRepoService } from '../../jobs/services/job-repo.service';
 import { JobSeekerProfile } from '../../profiles/entities/profile.entity';
-import { isOwnResumeKey } from '../../profiles/modules/job-seeker-profile/domain/resume-key';
+import {
+  RESUME_SIGNED_URL_TTL_SECONDS,
+  isOwnResumeKey,
+} from '../../profiles/modules/job-seeker-profile/domain/resume-key';
 import type { StorageService } from '../../storage/storage.service.interface';
 import { STORAGE_SERVICE } from '../../storage/storage.tokens';
 import { canTransition, isTerminal } from '../domain/application-status';
@@ -168,6 +171,7 @@ export class ApplicationRepoService {
     employerProfileId: string,
     { status, limit, offset }: ListJobApplicationsQueryDto,
   ): Promise<{ items: Application[]; total: number }> {
+    // Check the job listing is belong to employer, forbidden to non-owner
     await this.jobRepoService.findOwned(jobId, employerProfileId);
 
     const [items, total] = await this.applicationRepository.findAndCount({
@@ -195,6 +199,17 @@ export class ApplicationRepoService {
       throw new NotFoundException('Application not found.');
     }
     return application;
+  }
+
+  async getResumeSignedUrlForJobOwner(
+    id: string,
+    employerProfileId: string,
+  ): Promise<string> {
+    const application = await this.findOwnedByJobOwner(id, employerProfileId);
+    return this.storageService.createSignedUrl(
+      application.resumeUrl,
+      RESUME_SIGNED_URL_TTL_SECONDS,
+    );
   }
 
   async changeStatus(

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -12,6 +13,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentEmployerProfile } from '../profiles/decorators/current-employer-profile.decorator';
 import { EmployerProfileGuard } from '../profiles/guards/employer-profile.guard';
+import { ApplicationResumeResponseDto } from './dto/application-resume-response.dto';
 import { ApplicationResponseDto } from './dto/application-response.dto';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { toApplicationDto } from './mappers/application.mapper';
@@ -67,5 +69,33 @@ export class ApplicationReviewController {
       dto.status,
     );
     return toApplicationDto(application);
+  }
+
+  @Get(':id/resume')
+  @ApiOperation({
+    summary: "Open an applicant's résumé through a short-lived signed URL",
+    description:
+      'The owner of the listing the application was sent to, only. An ' +
+      "application on another company's listing is a 404, and a caller " +
+      'without an employer profile is a 403.',
+  })
+  @ApiResponse({ status: 200, type: ApplicationResumeResponseDto })
+  @ApiResponse({ status: 400, description: 'Malformed id.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'No employer profile.' })
+  @ApiResponse({
+    status: 404,
+    description:
+      "Application not found, or not on one of the caller's own listings.",
+  })
+  async getResume(
+    @CurrentEmployerProfile('id') employerProfileId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApplicationResumeResponseDto> {
+    const url = await this.applicationRepoService.getResumeSignedUrlForJobOwner(
+      id,
+      employerProfileId,
+    );
+    return new ApplicationResumeResponseDto(url);
   }
 }
