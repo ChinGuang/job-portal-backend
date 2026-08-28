@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 import request from 'supertest';
-import { ApiTestHarness } from './helpers/api.helper';
+import { ApiTestHarness, ApplicationBody } from './helpers/api.helper';
 
 // Implementation lives in test/__mocks__/jwks-rsa.ts.
 jest.mock('jwks-rsa');
@@ -14,13 +14,7 @@ const applyUrl = (jobId: string) => `/jobs/${jobId}/applications`;
 // A well-formed id that belongs to nothing, for the "not found" cases.
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
-interface ApplicationBody {
-  id: string;
-  jobId: string;
-  jobSeekerProfileId: string;
-  coverLetter: string | null;
-  resumeUrl: string;
-  status: string;
+interface ApplicationDetailBody extends ApplicationBody {
   job?: { id: string; title: string; status: string };
 }
 
@@ -383,14 +377,14 @@ describe('Applying to a job (e2e)', () => {
       const created = await apply('seeker', job.id, {
         coverLetter: 'Hello.',
       }).expect(201);
-      const id = (created.body as ApplicationBody).id;
+      const id = (created.body as ApplicationDetailBody).id;
 
       const res = await request(harness.server)
         .get(`${APPLICATIONS_URL}/${id}`)
         .set('Authorization', harness.authHeader('seeker'))
         .expect(200);
 
-      const body = res.body as ApplicationBody;
+      const body = res.body as ApplicationDetailBody;
       expect(body).toMatchObject({
         id,
         coverLetter: 'Hello.',
@@ -409,13 +403,15 @@ describe('Applying to a job (e2e)', () => {
       await harness.setJobStatus('employer', job.id, 'CLOSED').expect(200);
 
       const res = await request(harness.server)
-        .get(`${APPLICATIONS_URL}/${(created.body as ApplicationBody).id}`)
+        .get(
+          `${APPLICATIONS_URL}/${(created.body as ApplicationDetailBody).id}`,
+        )
         .set('Authorization', harness.authHeader('seeker'))
         .expect(200);
 
       // The public read path hides an ended role; the seeker who applied to it
       // still sees what became of it.
-      expect((res.body as ApplicationBody).job?.status).toBe('CLOSED');
+      expect((res.body as ApplicationDetailBody).job?.status).toBe('CLOSED');
     });
 
     it("refuses to reveal another seeker's application", async () => {
@@ -425,7 +421,9 @@ describe('Applying to a job (e2e)', () => {
 
       // 404, not 403: a 403 would confirm the application exists.
       await request(harness.server)
-        .get(`${APPLICATIONS_URL}/${(created.body as ApplicationBody).id}`)
+        .get(
+          `${APPLICATIONS_URL}/${(created.body as ApplicationDetailBody).id}`,
+        )
         .set('Authorization', harness.authHeader('nosy'))
         .expect(404);
     });

@@ -53,6 +53,15 @@ export interface JobSeekerProfileBody {
   resumeUrl: string | null;
 }
 
+export interface ApplicationBody {
+  id: string;
+  jobId: string;
+  jobSeekerProfileId: string;
+  coverLetter: string | null;
+  resumeUrl: string;
+  status: string;
+}
+
 /**
  * The e2e suites' shared seam: a real Nest application over the real test
  * database, with tokens minted locally. Storage is the only faked
@@ -131,11 +140,12 @@ export class ApiTestHarness {
   async becomeJobSeeker(
     sub: string,
     name = 'Ada Lovelace',
+    overrides: Record<string, unknown> = {},
   ): Promise<JobSeekerProfileBody> {
     const res = await request(this.server)
       .post(JOB_SEEKER_PROFILE_URL)
       .set('Authorization', this.authHeader(sub))
-      .send({ name })
+      .send({ name, ...overrides })
       .expect(201);
     return res.body as JobSeekerProfileBody;
   }
@@ -162,8 +172,9 @@ export class ApiTestHarness {
   async becomeJobSeekerWithResume(
     sub: string,
     name = 'Ada Lovelace',
+    overrides: Record<string, unknown> = {},
   ): Promise<{ profile: JobSeekerProfileBody; resumeUrl: string }> {
-    const profile = await this.becomeJobSeeker(sub, name);
+    const profile = await this.becomeJobSeeker(sub, name, overrides);
     const resumeUrl = await this.uploadResume(sub);
     return { profile, resumeUrl };
   }
@@ -196,6 +207,19 @@ export class ApiTestHarness {
     const job = await this.createJob(sub, overrides);
     const res = await this.setJobStatus(sub, job.id, 'PUBLISHED').expect(200);
     return res.body as JobBody;
+  }
+
+  async applyToJob(
+    sub: string,
+    jobId: string,
+    body: Record<string, unknown> = {},
+  ): Promise<ApplicationBody> {
+    const res = await request(this.server)
+      .post(`${JOBS_URL}/${jobId}/applications`)
+      .set('Authorization', this.authHeader(sub))
+      .send(body)
+      .expect(201);
+    return res.body as ApplicationBody;
   }
 
   /** Runs a query against the test database, past any read-path filter. */

@@ -9,5 +9,6 @@ import { JobRepoService } from './services/job-repo.service';
   imports: [TypeOrmModule.forFeature([Job]), EmployerProfileModule],
   providers: [JobRepoService],
   controllers: [JobController],
+  exports: [JobRepoService],
 })
 export class JobModule {}
