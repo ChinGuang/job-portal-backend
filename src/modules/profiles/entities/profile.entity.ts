@@ -32,10 +32,7 @@ export class EmployerProfile implements IEmployerProfile {
   @Column({ type: 'uuid', nullable: false })
   userId!: string;
 
-  // No ORM cascade: a user's deletion is cascaded to their listings at the
-  // application layer (webhook → profile soft-remove → subscriber), and a
-  // soft-remove here must not try to re-delete the user in the other direction.
-  @OneToOne(() => User)
+  @OneToOne(() => User, { cascade: ['soft-remove'] })
   @JoinColumn()
   user!: User;
 

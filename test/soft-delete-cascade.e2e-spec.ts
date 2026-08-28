@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+
 import request from 'supertest';
 import { ApiTestHarness } from './helpers/api.helper';
 
@@ -72,9 +74,7 @@ describe('Soft-delete cascade (e2e)', () => {
       const employer = await harness.becomeEmployer('cascade-mixed');
       await harness.createJob('cascade-mixed'); // DRAFT
       await harness.publishJob('cascade-mixed', { title: 'One' }); // PUBLISHED
-      const closed = await harness.publishJob('cascade-mixed', {
-        title: 'Two',
-      });
+      const closed = await harness.publishJob('cascade-mixed', { title: 'Two' });
       await harness
         .setJobStatus('cascade-mixed', closed.id, 'CLOSED')
         .expect(200);
@@ -122,8 +122,7 @@ describe('Soft-delete cascade (e2e)', () => {
       await harness.becomeEmployer('cascade-emp');
       const job = await harness.publishJob('cascade-emp');
 
-      const { profile } =
-        await harness.becomeJobSeekerWithResume('cascade-seeker');
+      const { profile } = await harness.becomeJobSeekerWithResume('cascade-seeker');
       await request(harness.server)
         .post(`/jobs/${job.id}/applications`)
         .set('Authorization', harness.authHeader('cascade-seeker'))

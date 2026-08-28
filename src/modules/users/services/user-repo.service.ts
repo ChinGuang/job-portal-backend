@@ -63,17 +63,7 @@ export class UserRepoService {
     );
   }
 
-  /**
-   * Soft-deletes the mirrored user and returns it, so the caller can cascade
-   * to what the user owned. Returns null when there is no such user (e.g. a
-   * duplicate delete delivery), which the caller reads as "nothing to cascade".
-   */
-  async softDeleteBySupabaseId(supabaseId: string): Promise<User | null> {
-    const user = await this.userRepository.findOne({ where: { supabaseId } });
-    if (!user) {
-      return null;
-    }
+  async softDeleteBySupabaseId(supabaseId: string): Promise<void> {
     await this.userRepository.softDelete({ supabaseId });
-    return user;
   }
 }
