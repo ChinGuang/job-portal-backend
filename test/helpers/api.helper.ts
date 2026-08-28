@@ -209,7 +209,6 @@ export class ApiTestHarness {
     return res.body as JobBody;
   }
 
-  /** Applies to a listing as `sub`, on whatever résumé their profile has. */
   async applyToJob(
     sub: string,
     jobId: string,

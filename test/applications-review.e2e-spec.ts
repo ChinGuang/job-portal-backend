@@ -3,10 +3,8 @@
 import request from 'supertest';
 import { ApiTestHarness, ApplicationBody } from './helpers/api.helper';
 
-// Implementation lives in test/__mocks__/jwks-rsa.ts.
 jest.mock('jwks-rsa');
 
-// A well-formed id that belongs to nothing, for the "not found" cases.
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
 const reviewUrl = (jobId: string) => `/jobs/${jobId}/applications`;
@@ -41,7 +39,6 @@ describe('Employer application review (e2e)', () => {
     await harness.stop();
   });
 
-  /** An employer with a published listing that one seeker has applied to. */
   async function arrangeOneApplication() {
     await harness.becomeEmployer('employer');
     const job = await harness.publishJob('employer');
@@ -65,7 +62,6 @@ describe('Employer application review (e2e)', () => {
       .send({ status });
   }
 
-  /** Walks an application to `status` through the API, as the owner would. */
   async function moveTo(id: string, ...statuses: string[]) {
     for (const status of statuses) {
       await setStatus('employer', id, status).expect(200);
@@ -136,7 +132,6 @@ describe('Employer application review (e2e)', () => {
 
       const res = await listApplications('employer', job.id).expect(200);
 
-      // The profile view an employer gets is narrower than the seeker's own.
       const { jobSeekerProfile } = (res.body.items as ReviewBody[])[0];
       expect(jobSeekerProfile.userId).toBeUndefined();
       expect(jobSeekerProfile.resumeUrl).toBeUndefined();
@@ -166,7 +161,6 @@ describe('Employer application review (e2e)', () => {
     });
 
     it("leaves out applications sent to the employer's other listings", async () => {
-      // Leaves one application on the first listing, which must not show up.
       await arrangeOneApplication();
       const second = await harness.publishJob('employer', { title: 'Two' });
       await harness.applyToJob('seeker', second.id);
@@ -339,7 +333,6 @@ describe('Employer application review (e2e)', () => {
     it('refuses a no-op transition rather than silently succeeding', async () => {
       const { application } = await arrangeOneApplication();
 
-      // A no-op means the caller has lost track of where this stands.
       await setStatus('employer', application.id, 'SUBMITTED').expect(409);
       await moveTo(application.id, 'REVIEWED');
       await setStatus('employer', application.id, 'REVIEWED').expect(409);
@@ -383,7 +376,6 @@ describe('Employer application review (e2e)', () => {
       const { application } = await arrangeOneApplication();
       await harness.becomeEmployer('rival', 'Rival Corp');
 
-      // 404, not 403: a 403 would confirm that someone applied somewhere.
       await setStatus('rival', application.id, 'REVIEWED').expect(404);
 
       await expect(storedStatus(application.id)).resolves.toBe('SUBMITTED');
@@ -402,8 +394,6 @@ describe('Employer application review (e2e)', () => {
 
     it("hides another company's application from a seeker who is also an employer", async () => {
       const { application } = await arrangeOneApplication();
-      // Holding an employer profile gets this caller past the capability
-      // guard; what stops them here is that the listing is not theirs.
       await harness.becomeEmployer('seeker', 'Seeker Side Project Ltd');
 
       await setStatus('seeker', application.id, 'OFFERED').expect(404);
@@ -412,8 +402,6 @@ describe('Employer application review (e2e)', () => {
     });
 
     it('refuses to let anyone decide the application they submitted themselves', async () => {
-      // One user wearing both hats, applying to their own listing — which the
-      // spec allows. Owning the listing is not enough to decide your own fate.
       await harness.becomeEmployer('solo', 'Solo Ventures');
       const job = await harness.publishJob('solo');
       await harness.becomeJobSeekerWithResume('solo', 'Solo Founder');
@@ -441,8 +429,6 @@ describe('Employer application review (e2e)', () => {
     it('checks the employer capability before validating the body', async () => {
       const { application } = await arrangeOneApplication();
 
-      // A caller missing the profile should hear about the profile, not about
-      // a malformed status.
       const res = await setStatus('seeker', application.id, 42).expect(403);
 
       expect(res.body.message).toMatch(/employer profile/i);

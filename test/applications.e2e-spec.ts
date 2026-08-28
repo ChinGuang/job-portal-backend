@@ -14,7 +14,6 @@ const applyUrl = (jobId: string) => `/jobs/${jobId}/applications`;
 // A well-formed id that belongs to nothing, for the "not found" cases.
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
-/** Only the detail route carries the listing, so only this suite knows it. */
 interface ApplicationDetailBody extends ApplicationBody {
   job?: { id: string; title: string; status: string };
 }

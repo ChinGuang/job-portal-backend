@@ -3,7 +3,6 @@ import { IsEnum, IsOptional } from 'class-validator';
 import { PagingQueryDto } from '../../../common/dto/paging-query.dto';
 import { ApplicationStatus } from '../entities/application.entity';
 
-/** Paging, plus the one filter a reviewer actually works from. */
 export class ListJobApplicationsQueryDto extends PagingQueryDto {
   @ApiPropertyOptional({
     enum: ApplicationStatus,

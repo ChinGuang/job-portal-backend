@@ -13,15 +13,12 @@ import { JobApplicationController } from './job-application.controller';
 import { ApplicationRepoService } from './services/application-repo.service';
 
 // `Job` is registered here rather than reached through the jobs module's
-// service: "may this be applied to?" is an applications rule. JobModule comes
-// in alongside it for the question that is *not* ours — who owns a listing —
-// so the answer, and its status code, stay in one place.
+// service: "may this be applied to?" is an applications rule.
 @Module({
   imports: [
     TypeOrmModule.forFeature([Application, Job]),
     JobModule,
     JobSeekerProfileModule,
-    // The employer capability guard on the review routes resolves a profile.
     EmployerProfileModule,
     // Applying never uploads, but does confirm a client-named key exists.
     StorageModule,

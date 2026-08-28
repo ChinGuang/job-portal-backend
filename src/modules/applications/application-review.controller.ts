@@ -17,10 +17,6 @@ import { UpdateApplicationStatusDto } from './dto/update-application-status.dto'
 import { toApplicationDto } from './mappers/application.mapper';
 import { ApplicationRepoService } from './services/application-repo.service';
 
-// The employer's half of `/applications`, guarded by the employer capability
-// where the seeker's read routes on the same path demand a job seeker
-// profile. Requiring an employer profile is also what keeps a seeker off this
-// route: the outcome of an application is not the applicant's to write.
 @ApiTags(SwaggerTag.APPLICATIONS)
 @Controller('applications')
 @UseGuards(JwtAuthGuard, EmployerProfileGuard)

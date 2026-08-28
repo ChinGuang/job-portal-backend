@@ -45,11 +45,6 @@ const DECIDED_CONCURRENTLY =
   'This application was decided by someone else while you were deciding it. ' +
   'Reload it and look at where it stands now.';
 
-/**
- * The employer deciding an application: the profile that must own the
- * listing, and the user behind it, who must not be the applicant. Two ids
- * that always travel together, so they travel as one thing.
- */
 export interface DecidingEmployer {
   employerProfileId: string;
   userId: string;
@@ -62,9 +57,6 @@ export class ApplicationRepoService {
     private readonly applicationRepository: Repository<Application>,
     @InjectRepository(Job)
     private readonly jobRepository: Repository<Job>,
-    // "Does this employer own this listing?" is a jobs question with an
-    // answer — and an HTTP status — already settled there. Asking it a second
-    // way here is how two modules start disagreeing about who owns what.
     private readonly jobRepoService: JobRepoService,
     @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
@@ -171,16 +163,6 @@ export class ApplicationRepoService {
     return application;
   }
 
-  /**
-   * One page of the applications sent to a listing the employer owns, newest
-   * first, each with the candidate attached so a reviewer can read the pile
-   * without a request per row.
-   *
-   * Ownership is proved before anything is read, so an employer pointing at
-   * another company's listing learns nothing about who applied to it. That
-   * check is the listings' one, which means its 403 — the resource being
-   * addressed here is the listing, and the caller has no claim on it.
-   */
   async findAllForJobOwner(
     jobId: string,
     employerProfileId: string,
@@ -188,7 +170,6 @@ export class ApplicationRepoService {
   ): Promise<{ items: Application[]; total: number }> {
     await this.jobRepoService.findOwned(jobId, employerProfileId);
 
-    // id breaks createdAt ties so paging cannot skip or repeat a row.
     const [items, total] = await this.applicationRepository.findAndCount({
       where: status ? { jobId, status } : { jobId },
       relations: { jobSeekerProfile: true },
@@ -199,17 +180,6 @@ export class ApplicationRepoService {
     return { items, total };
   }
 
-  /**
-   * Loads an application and proves the given employer owns the listing it
-   * was sent to.
-   *
-   * 404 for both "no such application" and "someone else's", where the
-   * listings' own ownership check would say 403. The difference is what a 403
-   * would admit: that this id names a real application, and so that some
-   * candidate applied somewhere. Compartmentalising candidate data means not
-   * confirming that to a stranger, which is the same reason a seeker reading
-   * another seeker's application gets a 404.
-   */
   private async findOwnedByJobOwner(
     id: string,
     employerProfileId: string,
@@ -227,13 +197,6 @@ export class ApplicationRepoService {
     return application;
   }
 
-  /**
-   * Moves one application along the hiring conversation.
-   *
-   * An unreachable move is a 409, not a 400: the body is well-formed and the
-   * status is a real one — what makes the request impossible is where the
-   * application already stands, not the request itself.
-   */
   async changeStatus(
     id: string,
     decider: DecidingEmployer,
@@ -244,9 +207,6 @@ export class ApplicationRepoService {
       decider.employerProfileId,
     );
 
-    // Nothing else stops this: a user may hold both profiles, and SPEC lets
-    // one apply to their own listing. Owning the listing is what the rest of
-    // this route checks, and for the applicant that is the wrong question.
     if (application.jobSeekerProfile?.userId === decider.userId) {
       throw new ForbiddenException(SELF_DECISION);
     }
@@ -259,10 +219,6 @@ export class ApplicationRepoService {
       );
     }
 
-    // The status the move was checked against is part of the WHERE clause,
-    // not just of the read above: two people deciding one REVIEWED
-    // application at the same moment would both pass a read-then-check, and
-    // whichever wrote second would quietly bury the other's outcome.
     const { affected } = await this.applicationRepository.update(
       { id, status: application.status },
       { status },

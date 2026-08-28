@@ -16,9 +16,6 @@ import { ListJobApplicationsQueryDto } from './dto/list-job-applications-query.d
 import { toApplicationReviewDto } from './mappers/application.mapper';
 import { ApplicationRepoService } from './services/application-repo.service';
 
-// The employer's half of `/jobs/:jobId/applications`. It sits apart from the
-// seeker's POST on the same path because the two are guarded by opposite
-// capabilities: one controller cannot demand both profiles at once.
 @ApiTags(SwaggerTag.APPLICATIONS)
 @Controller('jobs/:jobId/applications')
 @UseGuards(JwtAuthGuard, EmployerProfileGuard)

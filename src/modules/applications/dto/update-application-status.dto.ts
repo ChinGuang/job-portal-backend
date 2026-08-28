@@ -3,9 +3,6 @@ import { IsEnum } from 'class-validator';
 import { ApplicationStatus } from '../entities/application.entity';
 
 export class UpdateApplicationStatusDto {
-  // Every status validates, not just the reachable ones, so that asking for
-  // an unreachable move earns an explanation of the state machine (409)
-  // rather than a bare "not a valid enum value" (400).
   @ApiProperty({
     enum: ApplicationStatus,
     example: ApplicationStatus.REVIEWED,
