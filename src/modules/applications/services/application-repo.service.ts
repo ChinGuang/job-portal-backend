@@ -168,6 +168,7 @@ export class ApplicationRepoService {
     employerProfileId: string,
     { status, limit, offset }: ListJobApplicationsQueryDto,
   ): Promise<{ items: Application[]; total: number }> {
+    // Check the job listing is belong to employer, forbidden to non-owner
     await this.jobRepoService.findOwned(jobId, employerProfileId);
 
     const [items, total] = await this.applicationRepository.findAndCount({
