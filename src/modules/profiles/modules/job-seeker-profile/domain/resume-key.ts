@@ -13,3 +13,5 @@ export function buildResumeKey(profileId: string, extension: string): string {
 export function isOwnResumeKey(key: string, profileId: string): boolean {
   return key.startsWith(resumeKeyPrefix(profileId));
 }
+
+export const RESUME_SIGNED_URL_TTL_SECONDS = 300;

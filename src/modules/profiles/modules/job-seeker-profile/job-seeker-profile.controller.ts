@@ -26,6 +26,7 @@ import type { StorageService } from '../../../storage/storage.service.interface'
 import { STORAGE_SERVICE } from '../../../storage/storage.tokens';
 import { User } from '../../../users/entities/user.entity';
 import { JobSeekerProfile } from '../../entities/profile.entity';
+import { RESUME_SIGNED_URL_TTL_SECONDS } from './domain/resume-key';
 import { CreateJobSeekerProfileDto } from './dto/create-job-seeker-profile.dto';
 import { JobSeekerProfileResponseDto } from './dto/job-seeker-profile-response.dto';
 import { UpdateJobSeekerProfileDto } from './dto/update-job-seeker-profile.dto';
@@ -33,7 +34,6 @@ import { JobSeekerProfileService } from './services/job-seeker-profile.service';
 import { ResumeFileTypeValidator } from './validators/resume-file-type.validator';
 
 const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
-const RESUME_SIGNED_URL_TTL_SECONDS = 300;
 
 @ApiTags(SwaggerTag.PROFILES)
 @Controller('profiles/job-seeker')
