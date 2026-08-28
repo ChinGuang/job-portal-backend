@@ -32,7 +32,9 @@ export class EmployerProfile implements IEmployerProfile {
   @Column({ type: 'uuid', nullable: false })
   userId!: string;
 
-  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  // The cascade lives on the User side (User.employerProfile): soft-removing a
+  // user cascades here, and the subscriber on this entity archives the listings.
+  @OneToOne(() => User, (user) => user.employerProfile)
   @JoinColumn()
   user!: User;
 
@@ -75,7 +77,7 @@ export class JobSeekerProfile {
   @Column({ type: 'uuid', nullable: false })
   userId!: string;
 
-  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  @OneToOne(() => User, (user) => user.jobSeekerProfile)
   @JoinColumn({ name: 'userId' })
   user?: User;
 
@@ -112,4 +114,7 @@ export class JobSeekerProfile {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz' })
+  deletedAt?: Date;
 }
