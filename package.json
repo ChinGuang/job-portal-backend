@@ -22,6 +22,9 @@
     "supabase:start": "bash scripts/supabase-dev.sh start",
     "supabase:stop": "bash scripts/supabase-dev.sh stop",
     "smoke:storage": "dotenv -e .env.local -- ts-node scripts/smoke-storage.ts",
+    "seed:users": "dotenv -e .env.local -- ts-node scripts/seed-mock-users.ts",
+    "mirror:users": "dotenv -e .env.local -- ts-node scripts/mirror-supabase-users.ts",
+    "seed:profiles": "dotenv -e .env.local -- ts-node scripts/seed-profiles-and-jobs.ts",
     "entities:list": "ts-node scripts/list-entities.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "typeorm:env": "dotenv -e .env.local -- pnpm typeorm",
@@ -100,5 +103,11 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "msw",
+      "unrs-resolver"
+    ]
   }
 }

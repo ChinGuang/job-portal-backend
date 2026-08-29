@@ -14,4 +14,9 @@ export enum EnvKey {
 
   THROTTLE_TTL = 'THROTTLE_TTL',
   THROTTLE_LIMIT = 'THROTTLE_LIMIT',
+
+  // Comma-separated list of allowed CORS origins, e.g.
+  // "http://localhost:5173,https://app.example.com". Unset or empty reflects
+  // the request origin (dev-friendly); "*" allows any origin.
+  CORS_ORIGINS = 'CORS_ORIGINS',
 }
