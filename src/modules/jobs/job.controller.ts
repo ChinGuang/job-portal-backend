@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Inject,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -16,6 +17,9 @@ import { SwaggerTag } from '../../common/constants/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentEmployerProfile } from '../profiles/decorators/current-employer-profile.decorator';
 import { EmployerProfileGuard } from '../profiles/guards/employer-profile.guard';
+import { LOGO_SIGNED_URL_TTL_SECONDS } from '../profiles/modules/employee-profile/domain/logo-key';
+import type { StorageService } from '../storage/storage.service.interface';
+import { STORAGE_SERVICE } from '../storage/storage.tokens';
 import { BrowseJobsQueryDto } from './dto/browse-jobs-query.dto';
 import { CreateJobDto } from './dto/create-job.dto';
 import { JobListResponseDto } from './dto/job-list-response.dto';
@@ -33,19 +37,36 @@ function toResponseDto(job: Job): JobResponseDto {
   });
 }
 
-function toPublicDetailDto(job: Job): PublicJobDetailResponseDto {
-  return plainToInstance(PublicJobDetailResponseDto, job, {
-    excludeExtraneousValues: true,
-  });
-}
-
 // Guards are declared per route rather than on the controller: `GET /jobs` and
 // `GET /jobs/:id` land on this same path and are public, so a controller-wide
 // employer guard would be a trap for whoever adds them.
 @ApiTags(SwaggerTag.JOBS)
 @Controller('jobs')
 export class JobController {
-  constructor(private readonly jobRepoService: JobRepoService) {}
+  constructor(
+    private readonly jobRepoService: JobRepoService,
+    @Inject(STORAGE_SERVICE)
+    private readonly storageService: StorageService,
+  ) {}
+
+  // The embedded company's logoUrl is a private-bucket object path, not a
+  // fetchable URL — this exchanges it for a short-lived signed URL the moment
+  // before the detail goes out, so even an anonymous visitor gets a working
+  // link. Mirrors the owner-facing signing in EmployerProfileController.
+  private async toPublicDetailDto(
+    job: Job,
+  ): Promise<PublicJobDetailResponseDto> {
+    const dto = plainToInstance(PublicJobDetailResponseDto, job, {
+      excludeExtraneousValues: true,
+    });
+    if (dto.employer?.logoUrl) {
+      dto.employer.logoUrl = await this.storageService.createSignedUrl(
+        dto.employer.logoUrl,
+        LOGO_SIGNED_URL_TTL_SECONDS,
+      );
+    }
+    return dto;
+  }
 
   @Get()
   @ApiOperation({
@@ -117,7 +138,7 @@ export class JobController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<PublicJobDetailResponseDto> {
     const job = await this.jobRepoService.findPubliclyVisible(id);
-    return toPublicDetailDto(job);
+    return this.toPublicDetailDto(job);
   }
 
   @Patch(':id')
