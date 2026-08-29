@@ -61,7 +61,6 @@ describe('Employer profile (e2e)', () => {
         .send({
           companyName: 'Globex',
           websiteUrl: 'https://globex.example.com',
-          logoUrl: 'https://globex.example.com/logo.png',
           industry: 'Software',
           companySize: '11-50',
           description: 'We build things.',
@@ -72,12 +71,24 @@ describe('Employer profile (e2e)', () => {
       expect(res.body).toMatchObject({
         companyName: 'Globex',
         websiteUrl: 'https://globex.example.com',
-        logoUrl: 'https://globex.example.com/logo.png',
         industry: 'Software',
         companySize: '11-50',
         description: 'We build things.',
         address: '1 Market St, Springfield',
       });
+    });
+
+    it('rejects a client-supplied logoUrl with 400 (upload-only field)', async () => {
+      // The logo is owned by POST /profiles/employer/logo, not settable as an
+      // arbitrary URL here — forbidNonWhitelisted rejects it.
+      await request(app.getHttpServer())
+        .post(URL)
+        .set('Authorization', authHeader('user-2-logo'))
+        .send({
+          companyName: 'Logo Co',
+          logoUrl: 'https://logo.example.com/logo.png',
+        })
+        .expect(400);
     });
 
     it('rejects a second profile for the same user with 409', async () => {
@@ -233,7 +244,6 @@ describe('Employer profile (e2e)', () => {
         .send({
           companyName: 'After Co',
           websiteUrl: 'https://after.example.com',
-          logoUrl: 'https://after.example.com/logo.png',
           industry: 'Fintech',
           companySize: '201-500',
           description: 'A new description.',
@@ -244,7 +254,6 @@ describe('Employer profile (e2e)', () => {
       expect(res.body).toMatchObject({
         companyName: 'After Co',
         websiteUrl: 'https://after.example.com',
-        logoUrl: 'https://after.example.com/logo.png',
         industry: 'Fintech',
         companySize: '201-500',
         description: 'A new description.',
