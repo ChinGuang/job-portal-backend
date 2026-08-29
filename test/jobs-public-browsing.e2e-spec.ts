@@ -479,6 +479,44 @@ describe('Public job browsing (e2e)', () => {
       });
     });
 
+    it('resolves the company logo to a signed URL for an anonymous visitor', async () => {
+      const profile = await harness.becomeEmployer('open-logo-1', 'Logo Labs');
+      const logoKey = await harness.uploadLogo('open-logo-1');
+      const job = await harness.publishJob('open-logo-1');
+
+      // No Authorization header — the signing must happen for a stranger.
+      const res = await open(job.id).expect(200);
+
+      // The stored value is a private-bucket path; what a visitor receives is
+      // a signed URL derived from it (see InMemoryStorageService).
+      expect(logoKey).toBe(`logos/${profile.id}/logo.png`);
+      expect(typeof res.body.employer.logoUrl).toBe('string');
+      expect(res.body.employer.logoUrl).toContain(logoKey);
+      expect(res.body.employer.logoUrl).not.toBe(logoKey);
+    });
+
+    it('leaves the logo null when the employer has not uploaded one', async () => {
+      await harness.becomeEmployer('open-logo-2', 'No Logo Co');
+      const job = await harness.publishJob('open-logo-2');
+
+      const res = await open(job.id).expect(200);
+
+      expect(res.body.employer.logoUrl ?? null).toBeNull();
+    });
+
+    it('does not carry the logo on the GET /jobs list (only the detail view)', async () => {
+      await harness.becomeEmployer('open-logo-3', 'Listed Co');
+      await harness.uploadLogo('open-logo-3');
+      const job = await harness.publishJob('open-logo-3');
+
+      const res = await browse().expect(200);
+
+      const item = (res.body as JobListBody).items.find((j) => j.id === job.id);
+      expect(item).toBeDefined();
+      expect(item).not.toHaveProperty('logoUrl');
+      expect(item).not.toHaveProperty('employer');
+    });
+
     it('keeps the employer’s account plumbing out of the public profile', async () => {
       // A visitor has no business knowing which user account owns a company.
       await harness.becomeEmployer('open-6', 'Rocket Labs');

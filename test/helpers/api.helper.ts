@@ -7,11 +7,13 @@ import { AppModule } from '../../src/app.module';
 import { InMemoryStorageService } from '../../src/modules/storage/services/in-memory-storage.service';
 import { STORAGE_SERVICE } from '../../src/modules/storage/storage.tokens';
 import { TestAuthSeam } from './auth.helper';
+import { PNG_BUFFER } from './logo-fixtures';
 import { PDF_BUFFER } from './resume-fixtures';
 
 export const JOBS_URL = '/jobs';
 export const MINE_URL = '/jobs/mine';
 export const EMPLOYER_PROFILE_URL = '/profiles/employer';
+export const EMPLOYER_LOGO_URL = '/profiles/employer/logo';
 export const JOB_SEEKER_PROFILE_URL = '/profiles/job-seeker';
 export const JOB_SEEKER_RESUME_URL = '/profiles/job-seeker/resume';
 
@@ -177,6 +179,24 @@ export class ApiTestHarness {
     const profile = await this.becomeJobSeeker(sub, name, overrides);
     const resumeUrl = await this.uploadResume(sub);
     return { profile, resumeUrl };
+  }
+
+  /** Uploads a company logo for real, returning the storage key behind the
+   * response's signed URL — the value stored on the employer profile. */
+  async uploadLogo(sub: string): Promise<string> {
+    await request(this.server)
+      .post(EMPLOYER_LOGO_URL)
+      .set('Authorization', this.authHeader(sub))
+      .attach('file', PNG_BUFFER, 'logo.png')
+      .expect(201);
+
+    const [row] = await this.query<{ logoUrl: string }>(
+      `SELECT p."logoUrl" FROM employer_profiles p
+         JOIN users u ON u.id = p."userId"
+        WHERE u."supabaseId" = $1`,
+      [sub],
+    );
+    return row.logoUrl;
   }
 
   async createJob(
