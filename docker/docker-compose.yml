@@ -14,7 +14,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
   backend:
-    image: job-portal-backend-v1
+    image: job-portal-backend:latest
     container_name: job-portal-backend
     restart: always
     environment:
