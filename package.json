@@ -18,6 +18,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "bash scripts/run-e2e.sh",
+    "test:cov:e2e": "bash scripts/run-e2e-coverage.sh",
     "demo": "npx --yes serve demo -l 5500",
     "supabase:start": "bash scripts/supabase-dev.sh start",
     "supabase:stop": "bash scripts/supabase-dev.sh stop",
