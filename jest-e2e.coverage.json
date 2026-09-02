@@ -1,0 +1,23 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testMatch": ["<rootDir>/test/**/*.e2e-spec.ts"],
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "transformIgnorePatterns": [
+    "node_modules/\\.pnpm/(?!(jose|@nestjs\\+event-emitter)@)"
+  ],
+  "moduleNameMapper": {
+    "^file-type$": "<rootDir>/test/helpers/file-type.mock.ts"
+  },
+  "collectCoverageFrom": [
+    "src/**/*.ts",
+    "!src/**/*.spec.ts",
+    "!src/main.ts",
+    "!src/data-source.ts",
+    "!src/database/migrations/**"
+  ],
+  "coveragePathIgnorePatterns": ["/node_modules/", "/test/"]
+}
